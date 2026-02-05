@@ -26,6 +26,9 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   async function setPassword(formData: FormData) {
     "use server";
+    if (!invite) {
+      throw new Error("دعوت‌نامه نامعتبر است.");
+    }
     const name = String(formData.get("name") || "");
     const password = String(formData.get("password") || "");
     if (!password || password.length < 8) {
