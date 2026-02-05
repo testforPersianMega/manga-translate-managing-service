@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookType {
+  MANGA
+  MANHWA
+  COMIC
+}
+
+enum ChapterStatus {
+  AVAILABLE
+  CLAIMED
+  IN_PROGRESS
+  DONE
+}
+
+enum ScopeMode {
+  ALL_BOOKS
+  SELECTED_BOOKS
+}
+
+model User {
+  id              String                 @id @default(cuid())
+  name            String?
+  email           String                 @unique
+  passwordHash    String
+  roleId          String
+  role            Role                   @relation(fields: [roleId], references: [id])
+  isActive        Boolean                @default(true)
+  scopeMode       ScopeMode              @default(ALL_BOOKS)
+  permissionGrants UserPermissionGrant[]
+  permissionDenies UserPermissionDeny[]
+  bookAccess      BookAccess[]
+  assignedChapters Chapter[]             @relation("ChapterAssignments")
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+}
+
+model Role {
+  id              String            @id @default(cuid())
+  name            String            @unique
+  description     String?
+  users           User[]
+  rolePermissions RolePermission[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model Permission {
+  id        String            @id @default(cuid())
+  key       String            @unique
+  labelFa   String
+  group     String
+  createdAt DateTime          @default(now())
+  roles     RolePermission[]
+  grants    UserPermissionGrant[]
+  denies    UserPermissionDeny[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model UserPermissionGrant {
+  userId       String
+  permissionId String
+  user         User       @relation(fields: [userId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([userId, permissionId])
+}
+
+model UserPermissionDeny {
+  userId       String
+  permissionId String
+  user         User       @relation(fields: [userId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([userId, permissionId])
+}
+
+model Book {
+  id          String        @id @default(cuid())
+  titleFa     String
+  titleEn     String?
+  type        BookType
+  description String?
+  coverUrl    String?
+  chapters    Chapter[]
+  accesses    BookAccess[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model BookAccess {
+  userId String
+  bookId String
+  user   User @relation(fields: [userId], references: [id])
+  book   Book @relation(fields: [bookId], references: [id])
+
+  @@id([userId, bookId])
+  @@index([userId, bookId])
+}
+
+model Chapter {
+  id               String        @id @default(cuid())
+  bookId           String
+  number           String
+  title            String?
+  status           ChapterStatus @default(AVAILABLE)
+  assignedToUserId String?
+  assignedToUser   User?         @relation("ChapterAssignments", fields: [assignedToUserId], references: [id])
+  claimedAt        DateTime?
+  book             Book          @relation(fields: [bookId], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([bookId, status])
+  @@index([assignedToUserId, status])
+}
+
+model InviteToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+}
