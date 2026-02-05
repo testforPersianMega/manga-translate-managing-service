@@ -2,6 +2,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache openssl1.1-compat
+
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
 
 RUN if [ -f package-lock.json ]; then npm ci; \
