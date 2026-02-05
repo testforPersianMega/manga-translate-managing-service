@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { assertPermission, getEffectivePermissions } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -18,13 +19,13 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   const query = searchParams?.q ?? "";
   const type = searchParams?.type ?? "";
 
-  const bookWhere = {
+  const bookWhere: Prisma.BookWhereInput = {
     AND: [
       query
         ? {
             OR: [
-              { titleFa: { contains: query, mode: "insensitive" } },
-              { titleEn: { contains: query, mode: "insensitive" } },
+              { titleFa: { contains: query, mode: Prisma.QueryMode.insensitive } },
+              { titleEn: { contains: query, mode: Prisma.QueryMode.insensitive } },
             ],
           }
         : {},
