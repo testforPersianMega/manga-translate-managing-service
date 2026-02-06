@@ -194,7 +194,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
 
   const handleAutoOrder = useCallback(() => {
     updateCurrentJson((json) => {
-      const ordered = getOrderedBubbleIndices(json);
+      const ordered = getOrderedBubbleIndices(json, { ignoreExplicitOrder: true });
       ordered.forEach((index, position) => {
         json.items[index] = { ...json.items[index], order: position + 1 };
       });

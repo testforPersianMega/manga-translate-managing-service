@@ -25,11 +25,14 @@ const getBubbleCenter = (bbox: { x_min: number; x_max: number; y_min: number; y_
   };
 };
 
-export const getOrderedBubbleIndices = (jsonData: PageJson) => {
+export const getOrderedBubbleIndices = (
+  jsonData: PageJson,
+  options?: { ignoreExplicitOrder?: boolean },
+) => {
   const items = jsonData.items ?? [];
   if (!items.length) return [];
   const hasExplicitOrder = items.every((item) => Number.isFinite(Number(item.order)));
-  if (hasExplicitOrder) {
+  if (hasExplicitOrder && !options?.ignoreExplicitOrder) {
     return items
       .map((item, index) => ({
         index,
