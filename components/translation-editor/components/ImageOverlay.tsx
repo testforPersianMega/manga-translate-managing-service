@@ -45,6 +45,8 @@ export function ImageOverlay({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+  const [displayImageUrl, setDisplayImageUrl] = useState<string | null>(null);
+  const [isImageLoading, setIsImageLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const panStart = useRef({ x: 0, y: 0 });
@@ -94,6 +96,34 @@ export function ImageOverlay({
   }, [handleSelectStart, onWheelZoom]);
 
   useEffect(() => {
+    let active = true;
+    if (!imageUrl) {
+      setDisplayImageUrl(null);
+      setIsImageLoading(false);
+      setDisplaySize({ width: 0, height: 0 });
+      return undefined;
+    }
+    setIsImageLoading(true);
+    setDisplayImageUrl(null);
+    setDisplaySize({ width: 0, height: 0 });
+    const image = new Image();
+    image.src = imageUrl;
+    image.onload = () => {
+      if (!active) return;
+      setDisplayImageUrl(imageUrl);
+      setIsImageLoading(false);
+    };
+    image.onerror = () => {
+      if (!active) return;
+      setDisplayImageUrl(null);
+      setIsImageLoading(false);
+    };
+    return () => {
+      active = false;
+    };
+  }, [imageUrl]);
+
+  useEffect(() => {
     if (!imageRef.current) return;
     const updateSize = () => {
       if (!imageRef.current) return;
@@ -121,7 +151,7 @@ export function ImageOverlay({
       observer.disconnect();
       window.removeEventListener("resize", updateSize);
     };
-  }, [imageUrl, onStageMetricsChange]);
+  }, [displayImageUrl, onStageMetricsChange]);
 
   const imageSize = useMemo(() => {
     if (json?.image_size?.width && json.image_size?.height) {
@@ -282,40 +312,48 @@ export function ImageOverlay({
         onPointerCancel={(event) => stopDragging(event, "stop-pointer-cancel")}
         onLostPointerCapture={(event) => stopDragging(event, "stop-lost-pointer-capture")}
       >
-        {imageUrl ? (
+        {displayImageUrl ? (
           <img
             ref={imageRef}
-            src={imageUrl}
+            src={displayImageUrl}
             alt="Chapter page"
             className={styles.image}
             draggable={false}
           />
+        ) : isImageLoading ? (
+          <div className={styles.imagePlaceholder}>
+            Loading new page image...
+          </div>
         ) : (
           <div className={styles.imagePlaceholder}>Select a page to preview.</div>
         )}
-        <div className={styles.overlayLayer}>
-          {overlayItems.map((overlay, idx) => {
-            if (!overlay) return null;
-            return (
-              <div
-                key={`${overlay.index}-${idx}`}
-                data-overlay="true"
-                className={
-                  overlay.index === selectedIndex
-                    ? `${styles.overlay} ${styles.overlayActive}`
-                    : styles.overlay
-                }
-                style={{
-                  left: overlay.left,
-                  top: overlay.top,
-                  width: overlay.width,
-                  height: overlay.height,
-                }}
-                onClick={() => onSelect(overlay.index)}
-              />
-            );
-          })}
-        </div>
+        {displayImageUrl && (
+          <div className={styles.overlayLayer}>
+            {overlayItems.map((overlay, idx) => {
+              if (!overlay) return null;
+              return (
+                <div
+                  key={`${overlay.index}-${idx}`}
+                  data-overlay="true"
+                  className={
+                    overlay.index === selectedIndex
+                      ? `${styles.overlay} ${styles.overlayActive}`
+                      : styles.overlay
+                  }
+                  style={{
+                    left: overlay.left,
+                    top: overlay.top,
+                    width: overlay.width,
+                    height: overlay.height,
+                  }}
+                  onClick={() =>
+                    onSelect(overlay.index === selectedIndex ? -1 : overlay.index)
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

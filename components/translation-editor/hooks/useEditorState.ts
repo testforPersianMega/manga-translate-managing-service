@@ -16,6 +16,7 @@ import {
 
 const clampIndex = (index: number, length: number) => {
   if (length <= 0) return -1;
+  if (index < 0) return -1;
   return Math.max(0, Math.min(index, length - 1));
 };
 
@@ -79,20 +80,21 @@ export const useEditorState = (chapterId: string) => {
         applyInitialOverlapOrdering(jsonData);
         if (!active) return;
         setPages((prev) =>
-          prev.map((item, index) =>
-            index === currentPageIndex
-              ? {
-                  ...item,
-                  json: jsonData,
-                  isJsonLoading: false,
-                  selectedBubbleIndex: clampIndex(
-                    item.selectedBubbleIndex,
-                    jsonData.items?.length ?? 0,
-                  ),
-                  overlapOrdered: true,
-                }
-              : item,
-          ),
+          prev.map((item, index) => {
+            if (index !== currentPageIndex) return item;
+            const ordered = jsonData.items?.length ? getOrderedBubbleIndices(jsonData) : [];
+            const nextSelected =
+              item.selectedBubbleIndex < 0
+                ? (ordered[0] ?? -1)
+                : clampIndex(item.selectedBubbleIndex, jsonData.items?.length ?? 0);
+            return {
+              ...item,
+              json: jsonData,
+              isJsonLoading: false,
+              selectedBubbleIndex: nextSelected,
+              overlapOrdered: true,
+            };
+          }),
         );
       } catch {
         if (!active) return;
@@ -111,12 +113,26 @@ export const useEditorState = (chapterId: string) => {
     };
   }, [currentPageIndex, pages]);
 
-  const selectPage = useCallback((index: number) => {
-    setCurrentPageIndex((prev) => {
-      if (index < 0 || index >= pages.length) return prev;
-      return index;
-    });
-  }, [pages.length]);
+  const selectPage = useCallback(
+    (index: number) => {
+      setPages((prev) => {
+        if (index < 0 || index >= prev.length) return prev;
+        return prev.map((page, pageIndex) => {
+          if (pageIndex !== index) return page;
+          if (!page.json?.items?.length) {
+            return { ...page, selectedBubbleIndex: -1 };
+          }
+          const ordered = getOrderedBubbleIndices(page.json);
+          return { ...page, selectedBubbleIndex: ordered[0] ?? -1 };
+        });
+      });
+      setCurrentPageIndex((prev) => {
+        if (index < 0 || index >= pages.length) return prev;
+        return index;
+      });
+    },
+    [pages.length],
+  );
 
   const setSelectedBubbleIndex = useCallback((index: number) => {
     setPages((prev) =>

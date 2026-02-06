@@ -82,12 +82,6 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   const selectedItem = selectedIndex >= 0 ? items[selectedIndex] : null;
 
   useEffect(() => {
-    if (currentPage?.json?.items?.length && currentPage.selectedBubbleIndex < 0) {
-      setSelectedBubbleIndex(0);
-    }
-  }, [currentPage?.json?.items?.length, currentPage?.selectedBubbleIndex, setSelectedBubbleIndex]);
-
-  useEffect(() => {
     setManualOrderNotice(false);
   }, [currentPageIndex]);
 
