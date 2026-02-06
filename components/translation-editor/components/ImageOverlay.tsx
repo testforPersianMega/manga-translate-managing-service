@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { PageJson } from "../types";
 import { clampValue, getBboxEdges, getItemBbox } from "../utils";
 import styles from "../translation-editor.module.css";
@@ -15,6 +16,7 @@ type ImageOverlayProps = {
   drawMode: boolean;
   zoom: number;
   transformStyle: { transform: string };
+  toolbar?: ReactNode;
   onSelect: (index: number) => void;
   onWheelZoom: (deltaY: number, cursorX: number, cursorY: number) => void;
   onPanTo: (x: number, y: number) => void;
@@ -51,6 +53,7 @@ export function ImageOverlay({
   drawMode,
   zoom,
   transformStyle,
+  toolbar,
   onSelect,
   onWheelZoom,
   onPanTo,
@@ -571,6 +574,11 @@ export function ImageOverlay({
       onPointerDownCapture={handlePointerDownCapture}
       draggable={false}
     >
+      {toolbar && (
+        <div className={styles.imageToolbar} data-image-toolbar>
+          {toolbar}
+        </div>
+      )}
       <div
         className={`${styles.imageTransform} ${isDragging ? styles.imageTransformDragging : ""}`}
         style={transformStyle}

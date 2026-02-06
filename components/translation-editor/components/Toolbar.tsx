@@ -34,91 +34,100 @@ export function Toolbar({
   onResetZoom,
 }: ToolbarProps) {
   return (
-    <div className={styles.toolbar}>
+    <div className={`${styles.toolbar} image-toolbar`}>
       <div className={styles.toolbarGroup}>
         <button
           type="button"
-          className={styles.primaryButton}
+          className={`${styles.primaryButton} ${styles.iconButton}`}
           onClick={onSave}
           disabled={!canEdit || !canSave}
           title="Save (Ctrl/Cmd+S)"
+          aria-label="Save (Ctrl/Cmd+S)"
         >
-          Save (Ctrl/Cmd+S)
+          <span aria-hidden="true">💾</span>
         </button>
         <button
           type="button"
-          className={styles.secondaryButton}
+          className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onDownload}
           title="Download JSON (no shortcut)"
+          aria-label="Download JSON (no shortcut)"
         >
-          Download JSON
+          <span aria-hidden="true">⬇️</span>
         </button>
       </div>
       <div className={styles.toolbarGroup}>
         <button
           type="button"
-          className={styles.secondaryButton}
+          className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onUndo}
           title="Undo (Ctrl/Cmd+Z)"
+          aria-label="Undo (Ctrl/Cmd+Z)"
         >
-          Undo
+          <span aria-hidden="true">↶</span>
         </button>
         <button
           type="button"
-          className={styles.secondaryButton}
+          className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onRedo}
           title="Redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)"
+          aria-label="Redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)"
         >
-          Redo
+          <span aria-hidden="true">↷</span>
         </button>
       </div>
       <div className={styles.toolbarGroup}>
         <button
           type="button"
-          className={`${styles.secondaryButton} ${
+          className={`${styles.secondaryButton} ${styles.iconButton} ${
             drawMode ? styles.secondaryButtonActive : ""
           }`}
           onClick={onToggleDrawMode}
           disabled={!canEdit}
           title="Draw a new bubble"
+          aria-label="Draw a new bubble"
         >
-          Add Bubble
+          <span aria-hidden="true">✚</span>
         </button>
         <button
           type="button"
-          className={styles.secondaryButton}
+          className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onRemoveBubble}
           disabled={!canEdit || !canRemove}
           title="Remove selected bubble"
+          aria-label="Remove selected bubble"
         >
-          Remove Bubble
+          <span aria-hidden="true">🗑️</span>
         </button>
       </div>
       <div className={styles.toolbarGroup}>
         <button
           type="button"
-          className={styles.secondaryButton}
+          className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onZoomOut}
           title="Zoom out (-)"
+          aria-label="Zoom out (-)"
         >
-          -
+          <span aria-hidden="true">−</span>
         </button>
         <span className={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
         <button
           type="button"
-          className={styles.secondaryButton}
+          className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onZoomIn}
           title="Zoom in (+)"
+          aria-label="Zoom in (+)"
         >
-          +
+          <span aria-hidden="true">＋</span>
         </button>
         <button
           type="button"
-          className={styles.secondaryButton}
+          className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onResetZoom}
           title="Reset zoom (0)"
+          aria-label="Reset zoom (0)"
         >
-          Reset
+          <span aria-hidden="true">⟲</span>
         </button>
       </div>
     </div>
