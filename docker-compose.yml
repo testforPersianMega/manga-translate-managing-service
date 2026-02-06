@@ -21,6 +21,8 @@ services:
       NEXTAUTH_SECRET: change-me
     ports:
       - "3000:3000"
+    volumes:
+      - ./storage:/app/storage
     command: sh -c "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed && npm run start"
 
 volumes:

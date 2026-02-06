@@ -42,6 +42,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
   const canAssign = permissions.has(PERMISSIONS.CHAPTER_ASSIGN);
   const canChangeStatus = permissions.has(PERMISSIONS.CHAPTER_CHANGE_STATUS);
   const canEdit = await canEditChapter(user, chapter);
+  const canViewAssets = permissions.has(PERMISSIONS.CHAPTER_ASSETS_VIEW);
 
   const users = canAssign
     ? await prisma.user.findMany({
@@ -242,6 +243,14 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
         <p className="mt-2 text-sm text-gray-500">
           نسخه MVP: ویرایشگر ترجمه در مرحله بعدی اضافه می‌شود.
         </p>
+        {canViewAssets && (
+          <a
+            href={`/chapters/${params.id}/assets`}
+            className="mt-3 inline-flex text-sm text-blue-600"
+          >
+            مدیریت دارایی‌های چپتر
+          </a>
+        )}
       </div>
     </div>
   );

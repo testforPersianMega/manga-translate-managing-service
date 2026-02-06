@@ -6,6 +6,7 @@ interface SidebarProps {
 
 const navItems = [
   { href: "/dashboard", label: "داشبورد", permission: null },
+  { href: "/profile", label: "پروفایل", permission: null },
   { href: "/users", label: "کاربران", permission: "USER_LIST" },
   { href: "/roles", label: "نقش‌ها", permission: "ROLE_LIST" },
   { href: "/permissions", label: "کاتالوگ دسترسی‌ها", permission: "ROLE_VIEW" },

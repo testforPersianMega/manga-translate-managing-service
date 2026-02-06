@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission, canAccessBook } from "@/lib/authorization";
+import { assertPermission, canAccessBook, getEffectivePermissions } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { deleteChapterAssets } from "@/lib/chapter-assets";
 
 interface BookDetailPageProps {
   params: { id: string };
@@ -28,6 +29,9 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
     redirect("/books");
   }
 
+  const permissions = await getEffectivePermissions(user.id);
+  const canDelete = permissions.has(PERMISSIONS.CHAPTER_DELETE);
+
   async function createChapter(formData: FormData) {
     "use server";
     const sessionUser = await getSessionUser();
@@ -49,6 +53,26 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
         title: title || null,
       },
     });
+    redirect(`/books/${params.id}`);
+  }
+
+  async function removeChapter(formData: FormData) {
+    "use server";
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) return;
+    await assertPermission(sessionUser.id, PERMISSIONS.CHAPTER_DELETE);
+
+    const chapterId = String(formData.get("chapterId") || "");
+    const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
+    if (!chapter) return;
+
+    const allowed = await canAccessBook(sessionUser, chapter.bookId);
+    if (!allowed) {
+      throw new Error("عدم دسترسی به کتاب");
+    }
+
+    await deleteChapterAssets(chapterId);
+    await prisma.chapter.delete({ where: { id: chapterId } });
     redirect(`/books/${params.id}`);
   }
 
@@ -88,10 +112,16 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
                 <td>{chapter.number}</td>
                 <td>{chapter.title ?? "-"}</td>
                 <td>{chapter.status}</td>
-                <td>
+                <td className="space-x-2 space-x-reverse">
                   <Link href={`/chapters/${chapter.id}`} className="text-blue-600">
                     مشاهده
                   </Link>
+                  {canDelete && (
+                    <form action={removeChapter} className="inline">
+                      <input type="hidden" name="chapterId" value={chapter.id} />
+                      <button className="text-xs text-red-600">حذف</button>
+                    </form>
+                  )}
                 </td>
               </tr>
             ))}
