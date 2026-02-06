@@ -13,7 +13,7 @@
     "prisma:studio": "prisma studio"
   },
   "prisma": {
-    "seed": "node --loader ts-node/esm --no-warnings=ExperimentalWarning prisma/seed.ts"
+    "seed": "ts-node --transpile-only --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
