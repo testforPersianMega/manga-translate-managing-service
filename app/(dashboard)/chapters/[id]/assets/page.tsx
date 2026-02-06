@@ -1,5 +1,6 @@
 import path from "path";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import {
@@ -29,6 +30,7 @@ import { deleteStorageFile } from "@/lib/storage";
 import { logError } from "@/lib/error-logger";
 import { BulkUploadForm } from "@/components/BulkUploadForm";
 import { ChapterAssetsUpload } from "@/components/ChapterAssetsUpload";
+import { ChapterAssetsGrid } from "@/components/ChapterAssetsGrid";
 
 type ImageMode = "append" | "replace_all" | "merge_by_filename";
 
@@ -270,6 +272,28 @@ export default async function ChapterAssetsPage({
 
     const assetId = String(formData.get("assetId") ?? "");
     await deleteAssetWithFiles(assetId);
+    revalidatePath(`/chapters/${params.id}/assets`);
+    redirect(`/chapters/${params.id}/assets`);
+  }
+
+  async function deleteAssets(formData: FormData) {
+    "use server";
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) return;
+
+    await assertAssetPermission(
+      sessionUser.id,
+      params.id,
+      PERMISSIONS.CHAPTER_ASSETS_DELETE,
+      "edit",
+    );
+
+    const assetIds = formData.getAll("assetIds").map((value) => String(value));
+    if (assetIds.length === 0) {
+      return;
+    }
+    await Promise.all(assetIds.map((assetId) => deleteAssetWithFiles(assetId)));
+    revalidatePath(`/chapters/${params.id}/assets`);
     redirect(`/chapters/${params.id}/assets`);
   }
 
@@ -287,6 +311,7 @@ export default async function ChapterAssetsPage({
 
     const jsonId = String(formData.get("jsonId") ?? "");
     await deleteJsonWithFile(jsonId);
+    revalidatePath(`/chapters/${params.id}/assets`);
     redirect(`/chapters/${params.id}/assets`);
   }
 
@@ -332,6 +357,7 @@ export default async function ChapterAssetsPage({
         size: buffer.length,
       },
     });
+    revalidatePath(`/chapters/${params.id}/assets`);
     redirect(`/chapters/${params.id}/assets`);
   }
 
@@ -384,6 +410,7 @@ export default async function ChapterAssetsPage({
       });
     }
 
+    revalidatePath(`/chapters/${params.id}/assets`);
     redirect(`/chapters/${params.id}/assets`);
   }
 
@@ -425,6 +452,7 @@ export default async function ChapterAssetsPage({
       }),
     ]);
 
+    revalidatePath(`/chapters/${params.id}/assets`);
     redirect(`/chapters/${params.id}/assets`);
   }
 
@@ -553,6 +581,7 @@ export default async function ChapterAssetsPage({
         data: { chapterId: params.id, uploadedByUserId: sessionUser.id, type: "bulk_zip" },
       });
 
+      revalidatePath(`/chapters/${params.id}/assets`);
       return { status: "success", message: "آپلود انبوه انجام شد", report };
     } catch (error) {
       await logError(error, "bulkUpload");
@@ -579,89 +608,17 @@ export default async function ChapterAssetsPage({
         {assets.length === 0 ? (
           <p className="mt-3 text-xs text-gray-500">هنوز صفحه‌ای بارگذاری نشده است.</p>
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {assets.map((asset) => (
-              <div key={asset.id} className="rounded-lg border border-gray-200 p-3">
-                <img
-                  src={`/api/assets/image/${asset.id}`}
-                  alt={asset.fileName}
-                  className="h-48 w-full rounded-md object-cover"
-                />
-                <div className="mt-3 space-y-1 text-xs text-gray-600">
-                  <p>صفحه: {asset.pageIndex}</p>
-                  <p>فایل: {asset.fileName}</p>
-                  <p>JSON: {asset.pageJson ? "دارد" : "ندارد"}</p>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {canUpdate && (
-                    <form action={reorderPage}>
-                      <input type="hidden" name="assetId" value={asset.id} />
-                      <input type="hidden" name="direction" value="up" />
-                      <button className="rounded-md border border-gray-300 px-2 py-1 text-xs">
-                        بالا
-                      </button>
-                    </form>
-                  )}
-                  {canUpdate && (
-                    <form action={reorderPage}>
-                      <input type="hidden" name="assetId" value={asset.id} />
-                      <input type="hidden" name="direction" value="down" />
-                      <button className="rounded-md border border-gray-300 px-2 py-1 text-xs">
-                        پایین
-                      </button>
-                    </form>
-                  )}
-                  {canDelete && (
-                    <form action={deleteAsset}>
-                      <input type="hidden" name="assetId" value={asset.id} />
-                      <button className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-600">
-                        حذف تصویر
-                      </button>
-                    </form>
-                  )}
-                </div>
-
-                {canUpdate && (
-                  <form action={replaceImage} className="mt-3 space-y-2">
-                    <input type="hidden" name="assetId" value={asset.id} />
-                    <input name="image" type="file" accept="image/*" />
-                    <button className="rounded-md bg-gray-900 px-2 py-1 text-xs text-white">
-                      جایگزینی تصویر
-                    </button>
-                  </form>
-                )}
-
-                <div className="mt-3 space-y-2">
-                  {asset.pageJson && (
-                    <a
-                      href={`/api/assets/json/${asset.pageJson.id}`}
-                      className="text-xs text-blue-600"
-                    >
-                      دانلود JSON
-                    </a>
-                  )}
-                  {canUpdate && (
-                    <form action={replaceJson} className="space-y-2">
-                      <input type="hidden" name="assetId" value={asset.id} />
-                      <input name="json" type="file" accept="application/json" />
-                      <button className="rounded-md bg-gray-900 px-2 py-1 text-xs text-white">
-                        {asset.pageJson ? "جایگزینی JSON" : "آپلود JSON"}
-                      </button>
-                    </form>
-                  )}
-                  {asset.pageJson && canDelete && (
-                    <form action={deleteJson}>
-                      <input type="hidden" name="jsonId" value={asset.pageJson.id} />
-                      <button className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-600">
-                        حذف JSON
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <ChapterAssetsGrid
+            assets={assets}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+            deleteAsset={deleteAsset}
+            deleteAssets={deleteAssets}
+            deleteJson={deleteJson}
+            replaceImage={replaceImage}
+            replaceJson={replaceJson}
+            reorderPage={reorderPage}
+          />
         )}
       </div>
 

@@ -10,6 +10,7 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import ChapterActionButton from "@/components/ChapterActionButton";
+import { revalidatePath } from "next/cache";
 
 interface ChapterDetailPageProps {
   params: { id: string };
@@ -73,6 +74,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
         claimedAt: new Date(),
       },
     });
+    revalidatePath(`/chapters/${params.id}`);
   }
 
   async function unclaimChapter() {
@@ -94,6 +96,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
         claimedAt: null,
       },
     });
+    revalidatePath(`/chapters/${params.id}`);
   }
 
   async function updateStatus(formData: FormData) {
@@ -118,6 +121,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
       where: { id: params.id },
       data: { status },
     });
+    revalidatePath(`/chapters/${params.id}`);
   }
 
   async function updateMetadata(formData: FormData) {
@@ -139,6 +143,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
       where: { id: params.id },
       data: { number, title: title || null },
     });
+    revalidatePath(`/chapters/${params.id}`);
   }
 
   async function assignChapter(formData: FormData) {
@@ -155,6 +160,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
         status: assignedToUserId ? "CLAIMED" : "AVAILABLE",
       },
     });
+    revalidatePath(`/chapters/${params.id}`);
   }
 
   return (
@@ -255,12 +261,14 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
           نسخه MVP: ویرایشگر ترجمه در مرحله بعدی اضافه می‌شود.
         </p>
         {canViewAssets && (
-          <a
-            href={`/chapters/${params.id}/assets`}
-            className="mt-3 inline-flex text-sm text-blue-600"
-          >
-            مدیریت دارایی‌های چپتر
-          </a>
+          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            <a href={`/chapters/${params.id}/translate`} className="text-blue-600">
+              ورود به ویرایشگر ترجمه
+            </a>
+            <a href={`/chapters/${params.id}/assets`} className="text-blue-600">
+              مدیریت دارایی‌های چپتر
+            </a>
+          </div>
         )}
       </div>
     </div>

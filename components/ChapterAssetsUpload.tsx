@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 type UploadStatus =
   | "CLIENT_UPLOADING"
@@ -39,6 +40,8 @@ export function ChapterAssetsUpload({ chapterId, maxSingleMb, maxZipMb }: Upload
   const [uploadState, setUploadState] = useState<UploadState | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const refreshedForJobRef = useRef<string | null>(null);
+  const router = useRouter();
 
   const isBusy = useMemo(() => {
     if (!uploadState) return false;
@@ -103,7 +106,16 @@ export function ChapterAssetsUpload({ chapterId, maxSingleMb, maxZipMb }: Upload
     };
   }, [jobId]);
 
+  useEffect(() => {
+    if (!uploadState?.isDone) return;
+    if (jobId) return;
+    if (refreshedForJobRef.current === "done") return;
+    refreshedForJobRef.current = "done";
+    router.refresh();
+  }, [jobId, router, uploadState?.isDone]);
+
   const startUpload = (form: HTMLFormElement, uploadType: string) => {
+    refreshedForJobRef.current = null;
     const formData = new FormData(form);
     const file = formData.get("file") as File | null;
     if (!file) {
@@ -195,6 +207,7 @@ export function ChapterAssetsUpload({ chapterId, maxSingleMb, maxZipMb }: Upload
   const handleReset = () => {
     setUploadState(null);
     setJobId(null);
+    refreshedForJobRef.current = null;
   };
 
   return (
