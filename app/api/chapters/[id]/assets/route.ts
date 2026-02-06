@@ -40,6 +40,7 @@ export async function GET(_: Request, { params }: RouteParams) {
     return NextResponse.json(
       assets.map((asset) => ({
         pageIndex: asset.pageIndex,
+        assetId: asset.id,
         fileName: asset.fileName,
         imageUrl: `/api/assets/image/${asset.id}`,
         jsonUrl: asset.pageJson ? `/api/assets/json/${asset.pageJson.id}` : null,
