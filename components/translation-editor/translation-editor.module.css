@@ -87,6 +87,11 @@
   font-size: 0.85rem;
 }
 
+.secondaryButtonActive {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
 .zoomLabel {
   min-width: 3rem;
   text-align: center;
@@ -304,15 +309,86 @@
 
 .overlay {
   position: absolute;
-  border: 2px solid rgba(14, 116, 144, 0.65);
-  background: rgba(14, 116, 144, 0.15);
+  border: 2px solid rgb(243 0 0 / 39%);
+  background: rgb(245 0 0 / 6%);
+  border-radius: 6px;
   cursor: pointer;
   pointer-events: auto;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 
 .overlayActive {
-  border-color: rgba(220, 38, 38, 0.9);
-  background: rgba(248, 113, 113, 0.2);
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.28);
+  box-shadow: 0 0 9px 2px rgb(0 0 0 / 0.8);
+  z-index: 10;
+}
+
+.overlayDrawing {
+  border-style: dashed;
+  background: rgba(59, 130, 246, 0.18);
+  pointer-events: none;
+}
+
+.overlayHandle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border: 2px solid #3b82f6;
+  border-radius: 4px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.overlayHandle[data-corner="nw"] {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.overlayHandle[data-corner="ne"] {
+  top: 0;
+  left: 100%;
+  cursor: nesw-resize;
+}
+
+.overlayHandle[data-corner="n"] {
+  top: 0;
+  left: 50%;
+  cursor: ns-resize;
+}
+
+.overlayHandle[data-corner="sw"] {
+  top: 100%;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.overlayHandle[data-corner="w"] {
+  top: 50%;
+  left: 0;
+  cursor: ew-resize;
+}
+
+.overlayHandle[data-corner="se"] {
+  top: 100%;
+  left: 100%;
+  cursor: nwse-resize;
+}
+
+.overlayHandle[data-corner="e"] {
+  top: 50%;
+  left: 100%;
+  cursor: ew-resize;
+}
+
+.overlayHandle[data-corner="s"] {
+  top: 100%;
+  left: 50%;
+  cursor: ns-resize;
 }
 
 .historyActions {

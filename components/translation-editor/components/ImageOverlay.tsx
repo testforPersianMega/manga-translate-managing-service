@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PageJson } from "../types";
-import { getBboxEdges, getItemBbox } from "../utils";
+import { clampValue, getBboxEdges, getItemBbox } from "../utils";
 import styles from "../translation-editor.module.css";
+
+const MIN_BBOX_SIZE = 12;
 
 type ImageOverlayProps = {
   imageUrl: string | null;
@@ -9,10 +11,20 @@ type ImageOverlayProps = {
   selectedIndex: number;
   pan: { x: number; y: number };
   canPan: boolean;
+  canEdit: boolean;
+  drawMode: boolean;
+  zoom: number;
   transformStyle: { transform: string };
   onSelect: (index: number) => void;
   onWheelZoom: (deltaY: number, cursorX: number, cursorY: number) => void;
   onPanTo: (x: number, y: number) => void;
+  onAddBubble: (bbox: { xMin: number; xMax: number; yMin: number; yMax: number }) => void;
+  onUpdateBubble: (
+    index: number,
+    bbox: { xMin: number; xMax: number; yMin: number; yMax: number },
+  ) => void;
+  onCommitResize: (snapshot: PageJson) => void;
+  onDrawModeChange: (drawMode: boolean) => void;
   onStageMetricsChange?: (metrics: {
     wrapperWidth: number;
     wrapperHeight: number;
@@ -35,10 +47,17 @@ export function ImageOverlay({
   selectedIndex,
   pan,
   canPan,
+  canEdit,
+  drawMode,
+  zoom,
   transformStyle,
   onSelect,
   onWheelZoom,
   onPanTo,
+  onAddBubble,
+  onUpdateBubble,
+  onCommitResize,
+  onDrawModeChange,
   onStageMetricsChange,
   onMetricsChange,
 }: ImageOverlayProps) {
@@ -53,6 +72,24 @@ export function ImageOverlay({
   const activePointerId = useRef<number | null>(null);
   const panRaf = useRef<number | null>(null);
   const pendingPan = useRef<{ x: number; y: number } | null>(null);
+  const drawStart = useRef<{ x: number; y: number } | null>(null);
+  const drawStartDisplay = useRef<{ x: number; y: number } | null>(null);
+  const resizeState = useRef<{
+    index: number;
+    handle: string;
+    startEdges: { xMin: number; xMax: number; yMin: number; yMax: number };
+    startX: number;
+    startY: number;
+    pointerId: number;
+  } | null>(null);
+  const resizeSnapshot = useRef<PageJson | null>(null);
+  const [drawRect, setDrawRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
   const handlePointerDownCapture = (event: React.PointerEvent) => {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement | null;
@@ -124,6 +161,13 @@ export function ImageOverlay({
   }, [imageUrl]);
 
   useEffect(() => {
+    if (drawMode) return;
+    drawStart.current = null;
+    drawStartDisplay.current = null;
+    setDrawRect(null);
+  }, [drawMode]);
+
+  useEffect(() => {
     if (!imageRef.current) return;
     const updateSize = () => {
       if (!imageRef.current) return;
@@ -192,10 +236,81 @@ export function ImageOverlay({
     });
   }, [json, imageSize, displaySize.width, displaySize.height]);
 
+  const getDisplayPoint = useCallback(
+    (event: { clientX: number; clientY: number }) => {
+      if (!imageRef.current) return null;
+      const rect = imageRef.current.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      const x = (event.clientX - rect.left) / zoom;
+      const y = (event.clientY - rect.top) / zoom;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      return {
+        x: clampValue(x, 0, displaySize.width),
+        y: clampValue(y, 0, displaySize.height),
+      };
+    },
+    [displaySize.height, displaySize.width, zoom],
+  );
+
+  const getImagePoint = useCallback(
+    (event: { clientX: number; clientY: number }) => {
+      if (!imageSize || !displaySize.width || !displaySize.height) return null;
+      const point = getDisplayPoint(event);
+      if (!point) return null;
+      const widthScale = displaySize.width / imageSize.width;
+      const heightScale = displaySize.height / imageSize.height;
+      return {
+        x: point.x / widthScale,
+        y: point.y / heightScale,
+      };
+    },
+    [displaySize.height, displaySize.width, getDisplayPoint, imageSize],
+  );
+
+  const normalizeBounds = useCallback(
+    (xMin: number, xMax: number, yMin: number, yMax: number) => {
+      if (!imageSize) return null;
+      const minX = 0;
+      const minY = 0;
+      const maxX = imageSize.width;
+      const maxY = imageSize.height;
+      let nextXMin = clampValue(Math.min(xMin, xMax), minX, maxX);
+      let nextXMax = clampValue(Math.max(xMin, xMax), minX, maxX);
+      let nextYMin = clampValue(Math.min(yMin, yMax), minY, maxY);
+      let nextYMax = clampValue(Math.max(yMin, yMax), minY, maxY);
+      if (nextXMax - nextXMin < MIN_BBOX_SIZE) {
+        const adjust = MIN_BBOX_SIZE - (nextXMax - nextXMin);
+        nextXMin = clampValue(nextXMin - adjust / 2, minX, maxX);
+        nextXMax = clampValue(nextXMin + MIN_BBOX_SIZE, minX, maxX);
+      }
+      if (nextYMax - nextYMin < MIN_BBOX_SIZE) {
+        const adjust = MIN_BBOX_SIZE - (nextYMax - nextYMin);
+        nextYMin = clampValue(nextYMin - adjust / 2, minY, maxY);
+        nextYMax = clampValue(nextYMin + MIN_BBOX_SIZE, minY, maxY);
+      }
+      return { xMin: nextXMin, xMax: nextXMax, yMin: nextYMin, yMax: nextYMax };
+    },
+    [imageSize],
+  );
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (event.button !== 0) return;
     if (target.dataset.overlay === "true") return;
+    if (drawMode && canEdit) {
+      const point = getImagePoint(event);
+      if (!point || !json) return;
+      event.preventDefault();
+      drawStart.current = point;
+      const displayPoint = getDisplayPoint(event);
+      if (displayPoint) {
+        drawStartDisplay.current = displayPoint;
+        setDrawRect({ left: displayPoint.x, top: displayPoint.y, width: 0, height: 0 });
+      }
+      activePointerId.current = event.pointerId;
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      return;
+    }
     if (!canPan) return;
     setIsDragging(true);
     activePointerId.current = event.pointerId;
@@ -216,6 +331,18 @@ export function ImageOverlay({
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (drawStart.current && drawMode && canEdit) {
+      const displayPoint = getDisplayPoint(event);
+      if (!displayPoint) return;
+      const startDisplay = drawStartDisplay.current;
+      if (!startDisplay) return;
+      const left = Math.min(startDisplay.x, displayPoint.x);
+      const top = Math.min(startDisplay.y, displayPoint.y);
+      const width = Math.abs(displayPoint.x - startDisplay.x);
+      const height = Math.abs(displayPoint.y - startDisplay.y);
+      setDrawRect({ left, top, width, height });
+      return;
+    }
     if (!isDragging) return;
     if (!event.buttons) {
       stopDragging(event, "stop-no-buttons");
@@ -262,7 +389,46 @@ export function ImageOverlay({
     }
   };
 
+  const finalizeDraw = useCallback(
+    (event: { clientX: number; clientY: number }) => {
+      if (!drawStart.current || !drawMode || !canEdit) return;
+      if (!json || !imageSize) {
+        drawStart.current = null;
+        drawStartDisplay.current = null;
+        setDrawRect(null);
+        return;
+      }
+      const endPoint = getImagePoint(event);
+      if (!endPoint) return;
+      const normalized = normalizeBounds(
+        drawStart.current.x,
+        endPoint.x,
+        drawStart.current.y,
+        endPoint.y,
+      );
+      drawStart.current = null;
+      drawStartDisplay.current = null;
+      setDrawRect(null);
+      if (!normalized) return;
+      onAddBubble(normalized);
+      onDrawModeChange(false);
+    },
+    [canEdit, drawMode, getImagePoint, imageSize, json, normalizeBounds, onAddBubble, onDrawModeChange],
+  );
+
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (drawStart.current && drawMode && canEdit) {
+      if (activePointerId.current !== null) {
+        try {
+          (event.currentTarget as HTMLElement).releasePointerCapture(activePointerId.current);
+        } catch {
+          // Ignore release errors.
+        }
+        activePointerId.current = null;
+      }
+      finalizeDraw(event);
+      return;
+    }
     stopDragging(event, "stop-pointer-up");
   };
 
@@ -274,6 +440,10 @@ export function ImageOverlay({
 
   useEffect(() => {
     const handleWindowPointerUp = (event: PointerEvent) => {
+      if (drawStart.current && drawMode && canEdit) {
+        finalizeDraw(event);
+        return;
+      }
       stopDragging(event, "stop-window-pointer-up");
     };
     const handleWindowPointerCancel = (event: PointerEvent) => {
@@ -290,7 +460,107 @@ export function ImageOverlay({
       window.removeEventListener("pointercancel", handleWindowPointerCancel);
       window.removeEventListener("blur", handleWindowBlur);
     };
-  }, [isDragging]);
+  }, [canEdit, drawMode, finalizeDraw, isDragging]);
+
+  const startResize = (
+    event: React.PointerEvent<HTMLDivElement>,
+    index: number,
+    handle: string,
+  ) => {
+    if (!canEdit || !json) return;
+    const item = json.items[index];
+    const edges = getBboxEdges(getItemBbox(item));
+    if (!edges) return;
+    event.preventDefault();
+    event.stopPropagation();
+    resizeSnapshot.current = json ? JSON.parse(JSON.stringify(json)) : null;
+    resizeState.current = {
+      index,
+      handle,
+      startEdges: edges,
+      startX: event.clientX,
+      startY: event.clientY,
+      pointerId: event.pointerId,
+    };
+    setIsResizing(true);
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const handlePointerMove = (event: PointerEvent) => {
+      const current = resizeState.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      if (!imageSize || !displaySize.width || !displaySize.height) return;
+      const widthScale = displaySize.width / imageSize.width;
+      const heightScale = displaySize.height / imageSize.height;
+      const deltaX = (event.clientX - current.startX) / (widthScale * zoom);
+      const deltaY = (event.clientY - current.startY) / (heightScale * zoom);
+      let { xMin, xMax, yMin, yMax } = current.startEdges;
+      switch (current.handle) {
+        case "nw":
+          xMin += deltaX;
+          yMin += deltaY;
+          break;
+        case "ne":
+          xMax += deltaX;
+          yMin += deltaY;
+          break;
+        case "sw":
+          xMin += deltaX;
+          yMax += deltaY;
+          break;
+        case "se":
+          xMax += deltaX;
+          yMax += deltaY;
+          break;
+        case "n":
+          yMin += deltaY;
+          break;
+        case "s":
+          yMax += deltaY;
+          break;
+        case "w":
+          xMin += deltaX;
+          break;
+        case "e":
+          xMax += deltaX;
+          break;
+        default:
+          break;
+      }
+      const normalized = normalizeBounds(xMin, xMax, yMin, yMax);
+      if (!normalized) return;
+      onUpdateBubble(current.index, normalized);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      const current = resizeState.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      setIsResizing(false);
+      resizeState.current = null;
+      if (resizeSnapshot.current) {
+        onCommitResize(resizeSnapshot.current);
+      }
+      resizeSnapshot.current = null;
+    };
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [
+    displaySize.height,
+    displaySize.width,
+    imageSize,
+    isResizing,
+    normalizeBounds,
+    onCommitResize,
+    onUpdateBubble,
+    zoom,
+  ]);
 
   return (
     <div
@@ -349,9 +619,33 @@ export function ImageOverlay({
                   onClick={() =>
                     onSelect(overlay.index === selectedIndex ? -1 : overlay.index)
                   }
-                />
+                >
+                  {overlay.index === selectedIndex && canEdit && (
+                    <>
+                      {["nw", "n", "ne", "w", "e", "sw", "s", "se"].map((handle) => (
+                        <div
+                          key={handle}
+                          className={styles.overlayHandle}
+                          data-corner={handle}
+                          onPointerDown={(event) => startResize(event, overlay.index, handle)}
+                        />
+                      ))}
+                    </>
+                  )}
+                </div>
               );
             })}
+            {drawRect && (
+              <div
+                className={`${styles.overlay} ${styles.overlayDrawing}`}
+                style={{
+                  left: drawRect.left,
+                  top: drawRect.top,
+                  width: drawRect.width,
+                  height: drawRect.height,
+                }}
+              />
+            )}
           </div>
         )}
       </div>

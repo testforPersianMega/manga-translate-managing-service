@@ -3,11 +3,15 @@ import styles from "../translation-editor.module.css";
 type ToolbarProps = {
   canEdit: boolean;
   canSave: boolean;
+  canRemove: boolean;
+  drawMode: boolean;
   zoom: number;
   onSave: () => void;
   onDownload: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onToggleDrawMode: () => void;
+  onRemoveBubble: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -16,11 +20,15 @@ type ToolbarProps = {
 export function Toolbar({
   canEdit,
   canSave,
+  canRemove,
+  drawMode,
   zoom,
   onSave,
   onDownload,
   onUndo,
   onRedo,
+  onToggleDrawMode,
+  onRemoveBubble,
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -62,6 +70,28 @@ export function Toolbar({
           title="Redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)"
         >
           Redo
+        </button>
+      </div>
+      <div className={styles.toolbarGroup}>
+        <button
+          type="button"
+          className={`${styles.secondaryButton} ${
+            drawMode ? styles.secondaryButtonActive : ""
+          }`}
+          onClick={onToggleDrawMode}
+          disabled={!canEdit}
+          title="Draw a new bubble"
+        >
+          Add Bubble
+        </button>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={onRemoveBubble}
+          disabled={!canEdit || !canRemove}
+          title="Remove selected bubble"
+        >
+          Remove Bubble
         </button>
       </div>
       <div className={styles.toolbarGroup}>
