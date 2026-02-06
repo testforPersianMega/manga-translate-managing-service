@@ -62,6 +62,28 @@ export function ImageOverlay({
   };
 
   useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (!wrapperRef.current) return;
+      if (event.target instanceof Element && event.target.closest(".image-toolbar")) {
+        return;
+      }
+      if (!imageRef.current?.src) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const cursorX = event.clientX - rect.left - rect.width / 2;
+      const cursorY = event.clientY - rect.top - rect.height / 2;
+      onWheelZoom(event.deltaY, cursorX, cursorY);
+    };
+    wrapper.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      wrapper.removeEventListener("wheel", handleWheel);
+    };
+  }, [onWheelZoom]);
+
+  useEffect(() => {
     if (!imageRef.current) return;
     const updateSize = () => {
       if (!imageRef.current) return;
@@ -236,19 +258,15 @@ export function ImageOverlay({
       className={`${styles.imageWrapper} ${canPan ? styles.imageWrapperGrabbable : ""} ${
         isDragging ? styles.imageWrapperGrabbing : ""
       }`}
-      onWheel={(event) => {
-        if (!wrapperRef.current) return;
-        event.preventDefault();
-        const rect = wrapperRef.current.getBoundingClientRect();
-        const cursorX = event.clientX - rect.left - rect.width / 2;
-        const cursorY = event.clientY - rect.top - rect.height / 2;
-        onWheelZoom(event.deltaY, cursorX, cursorY);
-      }}
       onPointerDownCapture={handlePointerDownCapture}
       draggable={false}
+      onSelectStart={(event) => {
+        event.preventDefault();
+        return false;
+      }}
     >
       <div
-        className={styles.imageTransform}
+        className={`${styles.imageTransform} ${isDragging ? styles.imageTransformDragging : ""}`}
         style={transformStyle}
         draggable={false}
         onPointerDown={handlePointerDown}
@@ -265,6 +283,10 @@ export function ImageOverlay({
             alt="Chapter page"
             className={styles.image}
             draggable={false}
+            onSelectStart={(event) => {
+              event.preventDefault();
+              return false;
+            }}
           />
         ) : (
           <div className={styles.imagePlaceholder}>Select a page to preview.</div>
