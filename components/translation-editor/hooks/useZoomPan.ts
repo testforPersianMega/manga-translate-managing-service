@@ -20,10 +20,6 @@ export const useZoomPan = () => {
     return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
   }, []);
 
-  const clampPanAxis = useCallback((value: number, limit: number) => {
-    return Math.min(limit, Math.max(-limit, value));
-  }, []);
-
   const getMaxPanX = useCallback(
     (nextZoom: number) => {
       if (!metrics.wrapperWidth || !metrics.imageWidth) return 0;
@@ -44,7 +40,6 @@ export const useZoomPan = () => {
 
   const getPanLimits = useCallback(
     (nextZoom: number) => {
-      // Ported from old-editor/js/app.js getPanLimitX/getPanLimitY.
       const limitX = getMaxPanX(nextZoom) + Math.max(PAN_MARGIN, metrics.wrapperWidth / 2);
       const limitY = getMaxPanY(nextZoom) + Math.max(PAN_MARGIN, metrics.wrapperHeight / 2);
       return { limitX, limitY };
@@ -52,25 +47,27 @@ export const useZoomPan = () => {
     [getMaxPanX, getMaxPanY, metrics.wrapperHeight, metrics.wrapperWidth],
   );
 
+  const clampPan = useCallback((value: number, limit: number) => {
+    return Math.min(limit, Math.max(-limit, value));
+  }, []);
+
   const applyPan = useCallback(
     (nextX: number, nextY: number, nextZoom = zoom) => {
       const { limitX, limitY } = getPanLimits(nextZoom);
       const canPan = limitX > 0.5 || limitY > 0.5;
-      const clamped = canPan
-        ? { x: clampPanAxis(nextX, limitX), y: clampPanAxis(nextY, limitY) }
-        : { x: 0, y: 0 };
-      setPan((prev) => {
-        if (prev.x === clamped.x && prev.y === clamped.y) return prev;
-        return clamped;
-      });
+      if (!canPan) {
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+      setPan({ x: clampPan(nextX, limitX), y: clampPan(nextY, limitY) });
     },
-    [clampPanAxis, getPanLimits, zoom],
+    [clampPan, getPanLimits, zoom],
   );
 
   const applyZoom = useCallback(
     (nextZoom: number) => {
       const clamped = clampZoom(nextZoom);
-      setZoom((prev) => (Math.abs(prev - clamped) < 0.0001 ? prev : clamped));
+      setZoom(clamped);
       applyPan(pan.x, pan.y, clamped);
     },
     [applyPan, clampZoom, pan.x, pan.y],
@@ -85,10 +82,9 @@ export const useZoomPan = () => {
   }, [applyZoom, zoom]);
 
   const reset = useCallback(() => {
-    // Matches old-editor resetZoom + applyZoom flow.
     setZoom(1);
-    applyPan(0, 0, 1);
-  }, [applyPan]);
+    setPan({ x: 0, y: 0 });
+  }, []);
 
   const panBy = useCallback((dx: number, dy: number) => {
     const { limitX, limitY } = getPanLimits(zoom);
@@ -130,9 +126,8 @@ export const useZoomPan = () => {
   }, [getPanLimits, zoom]);
 
   useEffect(() => {
-    // Mirrors old-editor updateGrabState on resize: clamp using the latest metrics.
     applyPan(pan.x, pan.y, zoom);
-  }, [applyPan, metrics, pan.x, pan.y, zoom]);
+  }, [applyPan, pan.x, pan.y, zoom, metrics]);
 
   return {
     zoom,
