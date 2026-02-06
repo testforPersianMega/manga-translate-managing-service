@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PageJson } from "../types";
-import { getItemBbox } from "../utils";
+import { getBboxEdges, getItemBbox } from "../utils";
 import styles from "../translation-editor.module.css";
 
 type ImageOverlayProps = {
@@ -111,12 +111,12 @@ export function ImageOverlay({
     const widthScale = displaySize.width / imageSize.width;
     const heightScale = displaySize.height / imageSize.height;
     return json.items.map((item, index) => {
-      const bbox = getItemBbox(item);
-      if (!bbox) return null;
-      const left = bbox.x_min * widthScale;
-      const top = bbox.y_min * heightScale;
-      const width = (bbox.x_max - bbox.x_min) * widthScale;
-      const height = (bbox.y_max - bbox.y_min) * heightScale;
+      const edges = getBboxEdges(getItemBbox(item));
+      if (!edges) return null;
+      const left = edges.xMin * widthScale;
+      const top = edges.yMin * heightScale;
+      const width = (edges.xMax - edges.xMin) * widthScale;
+      const height = (edges.yMax - edges.yMin) * heightScale;
       return { index, left, top, width, height };
     });
   }, [json, imageSize, displaySize.width, displaySize.height]);
