@@ -17,8 +17,8 @@ This is a single-page helper for reviewing manga bubble detection JSON alongside
 | Save current JSON | `Ctrl/Cmd + S` |
 | Undo change | `Ctrl/Cmd + Z` |
 | Redo change | `Ctrl/Cmd + Shift + Z` or `Ctrl + Y` |
-| Next bubble | `Arrow Right` |
-| Previous bubble | `Arrow Left` |
+| Next bubble | `Arrow Left` |
+| Previous bubble | `Arrow Right` |
 | Zoom in | `+` or `=` |
 | Zoom out | `-` |
 | Reset zoom/position | `0` |

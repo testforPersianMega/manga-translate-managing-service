@@ -99,12 +99,12 @@ export const useShortcuts = ({
         }
       }
 
-      if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowRight") {
         event.preventDefault();
         onPrevBubble();
         return;
       }
-      if (event.key === "ArrowRight") {
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
         onNextBubble();
       }
