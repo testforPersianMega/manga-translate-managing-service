@@ -628,6 +628,7 @@ export function ImageOverlay({
                           className={styles.overlayHandle}
                           data-corner={handle}
                           onPointerDown={(event) => startResize(event, overlay.index, handle)}
+                          onClick={(event) => event.stopPropagation()}
                         />
                       ))}
                     </>
