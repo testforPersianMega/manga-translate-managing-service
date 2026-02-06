@@ -118,9 +118,8 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         return;
       }
       const data = (await response.json()) as { jsonUrl?: string };
-      if (data.jsonUrl) {
-        updateCurrentAsset((asset) => ({ ...asset, jsonUrl: data.jsonUrl }));
-      }
+      const jsonUrl = data.jsonUrl ?? null;
+      updateCurrentAsset((asset) => ({ ...asset, jsonUrl }));
       setStatusMessage("JSON saved successfully.");
     } catch {
       setStatusMessage("Failed to save JSON.");
