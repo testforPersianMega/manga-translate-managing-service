@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { ProfileForms } from "@/components/ProfileForms";
+import { ProfileLogoutButton } from "@/components/ProfileLogoutButton";
 
 const nameSchema = z.object({
   name: z
@@ -112,6 +113,16 @@ export default async function ProfilePage() {
         onChangePassword={changePassword}
         defaultName={user.name ?? ""}
       />
+
+      <div className="card flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-semibold">خروج از حساب</p>
+          <p className="text-xs text-gray-500">
+            برای پایان دادن به جلسه فعلی می‌توانید از حساب خارج شوید.
+          </p>
+        </div>
+        <ProfileLogoutButton />
+      </div>
     </div>
   );
 }
