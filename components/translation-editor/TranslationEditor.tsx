@@ -67,6 +67,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   const [autoPanEnabled, setAutoPanEnabled] = useState(true);
   const [bubbleMargin, setBubbleMargin] = useState(DEFAULT_MARGIN);
   const [manualOrderNotice, setManualOrderNotice] = useState(false);
+  const [drawMode, setDrawMode] = useState(false);
   const [metrics, setMetrics] = useState({
     displayWidth: 0,
     displayHeight: 0,
@@ -276,6 +277,89 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     [updateCurrentJson],
   );
 
+  const handleAddBubble = useCallback(
+    (bbox: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
+      if (!currentPage?.json) return;
+      updateCurrentJson((json) => {
+        const orders = json.items
+          .map((item) => Number(item.order))
+          .filter((value) => Number.isFinite(value));
+        const nextOrder = orders.length ? Math.max(...orders) + 1 : json.items.length + 1;
+        const lastId = json.items.at(-1)?.id;
+        const lastNumber =
+          typeof lastId === "number" ? lastId : Number.parseInt(String(lastId ?? ""), 10);
+        const nextId = Number.isFinite(lastNumber) ? lastNumber + 1 : json.items.length + 1;
+        json.items.push({
+          id: nextId,
+          order: nextOrder,
+          text_original: "",
+          text: "",
+          bubble_type: "Standard",
+          bbox_bubble: {
+            x_min: bbox.xMin,
+            y_min: bbox.yMin,
+            x_max: bbox.xMax,
+            y_max: bbox.yMax,
+            xMin: bbox.xMin,
+            yMin: bbox.yMin,
+            xMax: bbox.xMax,
+            yMax: bbox.yMax,
+          },
+        });
+        return json;
+      }, "add bubble");
+      setSelectedBubbleIndex(currentPage.json.items.length);
+      setDrawMode(false);
+    },
+    [currentPage?.json, setDrawMode, setSelectedBubbleIndex, updateCurrentJson],
+  );
+
+  const handleRemoveBubble = useCallback(() => {
+    if (!currentPage?.json || selectedIndex < 0) return;
+    updateCurrentJson((json) => {
+      json.items.splice(selectedIndex, 1);
+      return json;
+    }, "remove bubble");
+  }, [currentPage?.json, selectedIndex, updateCurrentJson]);
+
+  const handleToggleDrawMode = useCallback(() => {
+    setDrawMode((prev) => !prev);
+  }, []);
+
+  const handleUpdateBubbleBbox = useCallback(
+    (index: number, bbox: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
+      updateCurrentJson((json) => {
+        if (!json.items[index]) return json;
+        const nextBBox = {
+          x_min: bbox.xMin,
+          y_min: bbox.yMin,
+          x_max: bbox.xMax,
+          y_max: bbox.yMax,
+          xMin: bbox.xMin,
+          yMin: bbox.yMin,
+          xMax: bbox.xMax,
+          yMax: bbox.yMax,
+        };
+        if (json.items[index].bbox_bubble) {
+          json.items[index] = { ...json.items[index], bbox_bubble: nextBBox };
+        } else if (json.items[index].bbox_text) {
+          json.items[index] = { ...json.items[index], bbox_text: nextBBox };
+        } else {
+          json.items[index] = { ...json.items[index], bbox_bubble: nextBBox };
+        }
+        return json;
+      });
+    },
+    [updateCurrentJson],
+  );
+
+  const handleCommitResize = useCallback(
+    (snapshot: PageJson) => {
+      pushHistorySnapshot(snapshot, "resize bubble");
+    },
+    [pushHistorySnapshot],
+  );
+
   const hasJson = Boolean(currentPage?.json);
   const canSave = hasJson && canEdit;
 
@@ -326,11 +410,15 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
           <Toolbar
             canEdit={canEdit}
             canSave={canSave}
+            canRemove={selectedIndex >= 0}
+            drawMode={drawMode}
             zoom={zoom}
             onSave={onSave}
             onDownload={onDownload}
             onUndo={undo}
             onRedo={redo}
+            onToggleDrawMode={handleToggleDrawMode}
+            onRemoveBubble={handleRemoveBubble}
             onZoomIn={zoomIn}
             onZoomOut={zoomOut}
             onResetZoom={reset}
@@ -341,10 +429,17 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
             selectedIndex={selectedIndex}
             pan={pan}
             canPan={canPan}
+            canEdit={canEdit}
+            drawMode={drawMode}
+            zoom={zoom}
             transformStyle={transform}
             onSelect={setSelectedBubbleIndex}
             onWheelZoom={wheelZoom}
             onPanTo={panTo}
+            onAddBubble={handleAddBubble}
+            onCommitResize={handleCommitResize}
+            onUpdateBubble={handleUpdateBubbleBbox}
+            onDrawModeChange={setDrawMode}
             onStageMetricsChange={setStageMetrics}
             onMetricsChange={setMetrics}
           />
