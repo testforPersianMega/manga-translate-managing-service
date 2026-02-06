@@ -6,6 +6,11 @@ services:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
       POSTGRES_DB: manga_translate
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d manga_translate"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -14,7 +19,8 @@ services:
   app:
     build: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://app:app@db:5432/manga_translate
       NEXTAUTH_URL: http://localhost:3000
@@ -23,7 +29,7 @@ services:
       - "3000:3000"
     volumes:
       - ./storage:/app/storage
-    command: sh -c "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed && npm run start"
+    command: sh -c "npm run prisma:generate && npm run prisma:migrate:deploy && npm run prisma:seed && npm run start"
 
 volumes:
   postgres_data:
