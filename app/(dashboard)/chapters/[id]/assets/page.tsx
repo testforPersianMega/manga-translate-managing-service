@@ -27,6 +27,7 @@ import {
   sortImageEntries,
 } from "@/lib/chapter-assets";
 import { deleteStorageFile } from "@/lib/storage";
+import { logError } from "@/lib/error-logger";
 import { BulkUploadForm } from "@/components/BulkUploadForm";
 
 const pageIndexSchema = z
@@ -147,6 +148,7 @@ async function processImageEntries(
       nextIndex += 1;
     }
   } catch (error) {
+    await logError(error, "processImageEntries");
     await Promise.all(createdFiles.map((file) => deleteStorageFile(file)));
     throw error;
   }
@@ -839,6 +841,7 @@ export default async function ChapterAssetsPage({
             jsons: group.jsons.length,
           });
         } catch (error) {
+          await logError(error, "bulkUploadChapter");
           report.push({
             chapterId,
             images: group.images.length,
@@ -858,6 +861,7 @@ export default async function ChapterAssetsPage({
 
       return { status: "success", message: "آپلود انبوه انجام شد", report };
     } catch (error) {
+      await logError(error, "bulkUpload");
       return { status: "error", message: (error as Error).message, report: [] };
     }
   }
