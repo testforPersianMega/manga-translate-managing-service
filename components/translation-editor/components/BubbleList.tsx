@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { BubbleItem } from "../types";
 import { formatBubbleLabel } from "../utils";
 import styles from "../translation-editor.module.css";
@@ -7,9 +8,21 @@ type BubbleListProps = {
   orderedIndices: number[];
   selectedIndex: number;
   onSelect: (index: number) => void;
+  onReorder: (fromIndex: number, targetIndex: number) => void;
+  readOnly: boolean;
 };
 
-export function BubbleList({ items, orderedIndices, selectedIndex, onSelect }: BubbleListProps) {
+export function BubbleList({
+  items,
+  orderedIndices,
+  selectedIndex,
+  onSelect,
+  onReorder,
+  readOnly,
+}: BubbleListProps) {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   if (!items.length) {
     return (
       <div className={styles.panel}>
@@ -30,7 +43,42 @@ export function BubbleList({ items, orderedIndices, selectedIndex, onSelect }: B
           const order = Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1;
           const id = item.id ?? index + 1;
           return (
-            <li key={`${index}-${order}`}>
+            <li
+              key={`${index}-${order}`}
+              className={`${styles.bubbleListItem} ${
+                dragOverIndex === index ? styles.bubbleListItemDragOver : ""
+              } ${draggingIndex === index ? styles.bubbleListItemDragging : ""}`}
+              onDragOver={(event) => {
+                if (readOnly) return;
+                event.preventDefault();
+                setDragOverIndex(index);
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDragLeave={() => setDragOverIndex(null)}
+              onDrop={(event) => {
+                if (readOnly) return;
+                event.preventDefault();
+                setDragOverIndex(null);
+                const data = event.dataTransfer.getData("text/plain");
+                const fromIndex = Number.parseInt(data, 10);
+                if (!Number.isFinite(fromIndex)) return;
+                onReorder(fromIndex, index);
+              }}
+            >
+              <div
+                className={styles.bubbleDragHandle}
+                title="Drag to reorder"
+                draggable={!readOnly}
+                onDragStart={(event) => {
+                  if (readOnly) return;
+                  setDraggingIndex(index);
+                  event.dataTransfer.setData("text/plain", String(index));
+                  event.dataTransfer.effectAllowed = "move";
+                }}
+                onDragEnd={() => setDraggingIndex(null)}
+              >
+                ⋮⋮
+              </div>
               <button
                 type="button"
                 className={

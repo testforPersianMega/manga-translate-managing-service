@@ -7,15 +7,25 @@ type ImageOverlayProps = {
   imageUrl: string | null;
   json: PageJson | null;
   selectedIndex: number;
+  pan: { x: number; y: number };
+  canPan: boolean;
   transformStyle: { transform: string };
   onSelect: (index: number) => void;
-  onWheelZoom: (deltaY: number) => void;
-  onPanBy: (dx: number, dy: number) => void;
+  onWheelZoom: (deltaY: number, cursorX: number, cursorY: number) => void;
+  onPanTo: (x: number, y: number) => void;
+  onStageMetricsChange?: (metrics: {
+    wrapperWidth: number;
+    wrapperHeight: number;
+    imageWidth: number;
+    imageHeight: number;
+  }) => void;
   onMetricsChange?: (metrics: {
     displayWidth: number;
     displayHeight: number;
     imageWidth: number;
     imageHeight: number;
+    wrapperWidth: number;
+    wrapperHeight: number;
   }) => void;
 };
 
@@ -23,16 +33,24 @@ export function ImageOverlay({
   imageUrl,
   json,
   selectedIndex,
+  pan,
+  canPan,
   transformStyle,
   onSelect,
   onWheelZoom,
-  onPanBy,
+  onPanTo,
+  onStageMetricsChange,
   onMetricsChange,
 }: ImageOverlayProps) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
+  const panStart = useRef({ x: 0, y: 0 });
+  const activePointerId = useRef<number | null>(null);
+  const panRaf = useRef<number | null>(null);
+  const pendingPan = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!imageRef.current) return;
@@ -42,16 +60,27 @@ export function ImageOverlay({
         width: imageRef.current.clientWidth,
         height: imageRef.current.clientHeight,
       });
+      if (wrapperRef.current) {
+        onStageMetricsChange?.({
+          wrapperWidth: wrapperRef.current.clientWidth,
+          wrapperHeight: wrapperRef.current.clientHeight,
+          imageWidth: imageRef.current.clientWidth,
+          imageHeight: imageRef.current.clientHeight,
+        });
+      }
     };
     updateSize();
     const observer = new ResizeObserver(updateSize);
     observer.observe(imageRef.current);
+    if (wrapperRef.current) {
+      observer.observe(wrapperRef.current);
+    }
     window.addEventListener("resize", updateSize);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", updateSize);
     };
-  }, [imageUrl]);
+  }, [imageUrl, onStageMetricsChange]);
 
   const imageSize = useMemo(() => {
     if (json?.image_size?.width && json.image_size?.height) {
@@ -65,11 +94,15 @@ export function ImageOverlay({
 
   useEffect(() => {
     if (!imageSize || !displaySize.width || !displaySize.height) return;
+    const wrapperWidth = wrapperRef.current?.clientWidth ?? displaySize.width;
+    const wrapperHeight = wrapperRef.current?.clientHeight ?? displaySize.height;
     onMetricsChange?.({
       displayWidth: displaySize.width,
       displayHeight: displaySize.height,
       imageWidth: imageSize.width,
       imageHeight: imageSize.height,
+      wrapperWidth,
+      wrapperHeight,
     });
   }, [displaySize.height, displaySize.width, imageSize, onMetricsChange]);
 
@@ -90,45 +123,142 @@ export function ImageOverlay({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (target.dataset.overlay === "true") return;
     if (event.button !== 0) return;
+    if (target.dataset.overlay === "true") return;
+    if (!canPan) return;
     setIsDragging(true);
+    activePointerId.current = event.pointerId;
     dragStart.current = { x: event.clientX, y: event.clientY };
+    panStart.current = { x: pan.x, y: pan.y };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  };
+
+  const schedulePanUpdate = (nextX: number, nextY: number) => {
+    pendingPan.current = { x: nextX, y: nextY };
+    if (panRaf.current !== null) return;
+    panRaf.current = window.requestAnimationFrame(() => {
+      if (!pendingPan.current) return;
+      onPanTo(pendingPan.current.x, pendingPan.current.y);
+      pendingPan.current = null;
+      panRaf.current = null;
+    });
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
-    const dx = event.clientX - dragStart.current.x;
-    const dy = event.clientY - dragStart.current.y;
-    dragStart.current = { x: event.clientX, y: event.clientY };
-    onPanBy(dx, dy);
+    if (!event.buttons) {
+      stopDragging(event, "stop-no-buttons");
+      return;
+    }
+    const deltaX = event.clientX - dragStart.current.x;
+    const deltaY = event.clientY - dragStart.current.y;
+    schedulePanUpdate(panStart.current.x + deltaX, panStart.current.y + deltaY);
+  };
+
+  const finalizePan = (event?: PointerEvent | React.PointerEvent<HTMLDivElement>) => {
+    if (pendingPan.current) {
+      onPanTo(pendingPan.current.x, pendingPan.current.y);
+      return;
+    }
+    if (!event || typeof event.clientX !== "number") return;
+    const deltaX = event.clientX - dragStart.current.x;
+    const deltaY = event.clientY - dragStart.current.y;
+    onPanTo(panStart.current.x + deltaX, panStart.current.y + deltaY);
+  };
+
+  const stopDragging = (
+    event?: PointerEvent | React.PointerEvent<HTMLDivElement>,
+    reason?: string,
+  ) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (panRaf.current !== null) {
+      cancelAnimationFrame(panRaf.current);
+      panRaf.current = null;
+    }
+    finalizePan(event);
+    pendingPan.current = null;
+    if (activePointerId.current !== null && wrapperRef.current) {
+      try {
+        wrapperRef.current.releasePointerCapture(activePointerId.current);
+      } catch (error) {
+        // Ignore release errors (e.g. capture already released).
+      }
+    }
+    activePointerId.current = null;
+    if (reason) {
+      void reason;
+    }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+    stopDragging(event, "stop-pointer-up");
   };
+
+  const handlePointerLeave = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    if (event.buttons) return;
+    stopDragging(event, "stop-pointer-leave");
+  };
+
+  useEffect(() => {
+    const handleWindowPointerUp = (event: PointerEvent) => {
+      stopDragging(event, "stop-window-pointer-up");
+    };
+    const handleWindowPointerCancel = (event: PointerEvent) => {
+      stopDragging(event, "stop-window-pointer-cancel");
+    };
+    const handleWindowBlur = () => {
+      stopDragging(undefined, "stop-blur");
+    };
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerCancel);
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerCancel);
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [isDragging]);
 
   return (
     <div
-      className={styles.imageStage}
+      ref={wrapperRef}
+      className={`${styles.imageWrapper} ${canPan ? styles.imageWrapperGrabbable : ""} ${
+        isDragging ? styles.imageWrapperGrabbing : ""
+      }`}
       onWheel={(event) => {
+        if (!wrapperRef.current) return;
         event.preventDefault();
-        onWheelZoom(event.deltaY);
+        const rect = wrapperRef.current.getBoundingClientRect();
+        const cursorX = event.clientX - rect.left - rect.width / 2;
+        const cursorY = event.clientY - rect.top - rect.height / 2;
+        onWheelZoom(event.deltaY, cursorX, cursorY);
       }}
+      onSelectStart={(event) => event.preventDefault()}
+      draggable={false}
     >
       <div
         className={styles.imageTransform}
         style={transformStyle}
+        onSelectStart={(event) => event.preventDefault()}
+        draggable={false}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
+        onPointerCancel={(event) => stopDragging(event, "stop-pointer-cancel")}
+        onLostPointerCapture={(event) => stopDragging(event, "stop-lost-pointer-capture")}
       >
         {imageUrl ? (
-          <img ref={imageRef} src={imageUrl} alt="Chapter page" className={styles.image} />
+          <img
+            ref={imageRef}
+            src={imageUrl}
+            alt="Chapter page"
+            className={styles.image}
+            draggable={false}
+            onSelectStart={(event) => event.preventDefault()}
+          />
         ) : (
           <div className={styles.imagePlaceholder}>Select a page to preview.</div>
         )}
