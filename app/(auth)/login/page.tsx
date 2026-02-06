@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -17,12 +19,15 @@ export default function LoginPage() {
     const response = await signIn("credentials", {
       email,
       password,
-      redirect: true,
-      callbackUrl: "/dashboard",
+      redirect: false,
     });
     if (response?.error) {
       setError("اطلاعات ورود نادرست است یا حساب غیرفعال است.");
       setLoading(false);
+      return;
+    }
+    if (response?.ok) {
+      router.push("/dashboard");
     }
   }
 
