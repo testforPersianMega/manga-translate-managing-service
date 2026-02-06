@@ -407,22 +407,6 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
           />
         </div>
         <div className={styles.previewColumn}>
-          <Toolbar
-            canEdit={canEdit}
-            canSave={canSave}
-            canRemove={selectedIndex >= 0}
-            drawMode={drawMode}
-            zoom={zoom}
-            onSave={onSave}
-            onDownload={onDownload}
-            onUndo={undo}
-            onRedo={redo}
-            onToggleDrawMode={handleToggleDrawMode}
-            onRemoveBubble={handleRemoveBubble}
-            onZoomIn={zoomIn}
-            onZoomOut={zoomOut}
-            onResetZoom={reset}
-          />
           <ImageOverlay
             imageUrl={currentPage?.asset.imageUrl ?? null}
             json={currentPage?.json ?? null}
@@ -442,6 +426,24 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
             onDrawModeChange={setDrawMode}
             onStageMetricsChange={setStageMetrics}
             onMetricsChange={setMetrics}
+            toolbar={
+              <Toolbar
+                canEdit={canEdit}
+                canSave={canSave}
+                canRemove={selectedIndex >= 0}
+                drawMode={drawMode}
+                zoom={zoom}
+                onSave={onSave}
+                onDownload={onDownload}
+                onUndo={undo}
+                onRedo={redo}
+                onToggleDrawMode={handleToggleDrawMode}
+                onRemoveBubble={handleRemoveBubble}
+                onZoomIn={zoomIn}
+                onZoomOut={zoomOut}
+                onResetZoom={reset}
+              />
+            }
           />
         </div>
         <div className={styles.column}>
