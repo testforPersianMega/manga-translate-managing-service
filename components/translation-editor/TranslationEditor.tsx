@@ -90,11 +90,6 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     setManualOrderNotice(false);
   }, [currentPageIndex]);
 
-  useEffect(() => {
-    // Match old-editor page load behavior: center and reset zoom on new page.
-    reset();
-  }, [currentPage?.asset?.assetId, reset]);
-
   const ensureBubbleInView = useCallback(() => {
     if (!autoPanEnabled || !currentPage?.json || selectedIndex < 0) return;
     const item = currentPage.json.items[selectedIndex];
