@@ -123,7 +123,7 @@ async function readZipEntries(jobId: string, zipPath: string) {
       if (!fileName) return null;
       return { entry, sanitized, fileName };
     })
-    .filter((entry): entry is { entry: unzipper.Entry; sanitized: string; fileName: string } =>
+    .filter((entry): entry is { entry: unzipper.File; sanitized: string; fileName: string } =>
       Boolean(entry),
     );
 
