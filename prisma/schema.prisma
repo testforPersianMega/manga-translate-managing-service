@@ -41,6 +41,7 @@ model User {
   activityLogs    ActivityLog[]          @relation("ActivityActor")
   targetedLogs    ActivityLog[]          @relation("ActivityTarget")
   uploadBatches   ChapterUploadBatch[]
+  uploadJobs      UploadJob[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 }
@@ -129,6 +130,7 @@ model Chapter {
   assets           ChapterAsset[]
   pageJsons        ChapterPageJson[]
   uploadBatches    ChapterUploadBatch[]
+  uploadJobs       UploadJob[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -185,6 +187,23 @@ model ChapterUploadBatch {
   uploadedByUser   User?    @relation(fields: [uploadedByUserId], references: [id])
   type             String
   createdAt        DateTime @default(now())
+}
+
+model UploadJob {
+  id              String   @id @default(cuid())
+  chapterId       String
+  chapter         Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  status          String
+  progressCurrent Int?
+  progressTotal   Int?
+  messageFa       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([chapterId, userId, createdAt])
+  @@index([userId, status])
 }
 
 model ActivityLog {
