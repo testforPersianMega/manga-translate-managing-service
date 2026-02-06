@@ -1,5 +1,6 @@
 import path from "path";
 import { promises as fs } from "fs";
+import { logError } from "@/lib/error-logger";
 
 export const STORAGE_ROOT = process.env.STORAGE_ROOT ?? "/app/storage";
 
@@ -29,6 +30,7 @@ export async function deleteStorageFile(relativePath: string) {
     await fs.unlink(absolutePath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      await logError(error, "deleteStorageFile");
       throw error;
     }
   }
