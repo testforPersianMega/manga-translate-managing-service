@@ -235,13 +235,13 @@ export function ImageOverlay({
         const cursorY = event.clientY - rect.top - rect.height / 2;
         onWheelZoom(event.deltaY, cursorX, cursorY);
       }}
-      onSelectStart={(event) => event.preventDefault()}
+      onSelectStartCapture={(event) => event.preventDefault()}
       draggable={false}
     >
       <div
         className={styles.imageTransform}
         style={transformStyle}
-        onSelectStart={(event) => event.preventDefault()}
+        onSelectStartCapture={(event) => event.preventDefault()}
         draggable={false}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -257,7 +257,7 @@ export function ImageOverlay({
             alt="Chapter page"
             className={styles.image}
             draggable={false}
-            onSelectStart={(event) => event.preventDefault()}
+            onSelectStartCapture={(event) => event.preventDefault()}
           />
         ) : (
           <div className={styles.imagePlaceholder}>Select a page to preview.</div>
