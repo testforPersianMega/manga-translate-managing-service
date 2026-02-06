@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission } from "@/lib/authorization";
+import { assertPermission, redirectIfNoPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 
 export default async function NewRolePage() {
   const user = await getSessionUser();
   if (!user) return null;
-  await assertPermission(user.id, PERMISSIONS.ROLE_CREATE);
+  await redirectIfNoPermission(user.id, PERMISSIONS.ROLE_CREATE, "/roles");
 
   const permissions = await prisma.permission.findMany({ orderBy: { key: "asc" } });
 

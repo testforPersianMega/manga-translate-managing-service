@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission, canAccessBook, getEffectivePermissions } from "@/lib/authorization";
+import {
+  assertPermission,
+  canAccessBook,
+  getEffectivePermissions,
+  redirectIfNoPermission,
+} from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { deleteChapterAssets } from "@/lib/chapter-assets";
@@ -14,7 +19,7 @@ interface BookDetailPageProps {
 export default async function BookDetailPage({ params }: BookDetailPageProps) {
   const user = await getSessionUser();
   if (!user) return null;
-  await assertPermission(user.id, PERMISSIONS.BOOK_VIEW);
+  await redirectIfNoPermission(user.id, PERMISSIONS.BOOK_VIEW, "/books");
 
   const book = await prisma.book.findUnique({
     where: { id: params.id },

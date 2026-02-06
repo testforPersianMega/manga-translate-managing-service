@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission } from "@/lib/authorization";
+import { redirectIfNoPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 
 export default async function RolesPage() {
   const user = await getSessionUser();
   if (!user) return null;
-  await assertPermission(user.id, PERMISSIONS.ROLE_LIST);
+  await redirectIfNoPermission(user.id, PERMISSIONS.ROLE_LIST, "/");
 
   const roles = await prisma.role.findMany({
     orderBy: { name: "asc" },

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission } from "@/lib/authorization";
+import { redirectIfNoPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 
 interface UsersPageProps {
@@ -11,7 +11,7 @@ interface UsersPageProps {
 export default async function UsersPage({ searchParams }: UsersPageProps) {
   const user = await getSessionUser();
   if (!user) return null;
-  await assertPermission(user.id, PERMISSIONS.USER_LIST);
+  await redirectIfNoPermission(user.id, PERMISSIONS.USER_LIST, "/");
 
   const query = searchParams?.q ?? "";
 

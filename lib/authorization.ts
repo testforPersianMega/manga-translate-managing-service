@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { PERMISSIONS } from "./permissions";
 import { getSessionUser } from "./auth";
 import type { Chapter, User } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 export async function requireUser() {
   const user = await getSessionUser();
@@ -95,5 +96,16 @@ export async function assertPermission(userId: string, permission: string) {
   const allowed = await hasPermission(userId, permission);
   if (!allowed) {
     throw new Error("عدم دسترسی لازم");
+  }
+}
+
+export async function redirectIfNoPermission(
+  userId: string,
+  permission: string,
+  redirectTo = "/",
+) {
+  const allowed = await hasPermission(userId, permission);
+  if (!allowed) {
+    redirect(redirectTo);
   }
 }

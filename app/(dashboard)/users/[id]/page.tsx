@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission, getEffectivePermissions } from "@/lib/authorization";
+import {
+  assertPermission,
+  getEffectivePermissions,
+  redirectIfNoPermission,
+} from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import bcrypt from "bcrypt";
@@ -13,7 +17,7 @@ interface UserDetailPageProps {
 export default async function UserDetailPage({ params }: UserDetailPageProps) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) return null;
-  await assertPermission(sessionUser.id, PERMISSIONS.USER_VIEW);
+  await redirectIfNoPermission(sessionUser.id, PERMISSIONS.USER_VIEW, "/users");
 
   const user = await prisma.user.findUnique({
     where: { id: params.id },

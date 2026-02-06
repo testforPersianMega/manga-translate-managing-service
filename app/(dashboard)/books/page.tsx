@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission, getEffectivePermissions } from "@/lib/authorization";
+import { assertPermission, getEffectivePermissions, redirectIfNoPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 
@@ -13,7 +13,7 @@ interface BooksPageProps {
 export default async function BooksPage({ searchParams }: BooksPageProps) {
   const user = await getSessionUser();
   if (!user) return null;
-  await assertPermission(user.id, PERMISSIONS.BOOK_LIST);
+  await redirectIfNoPermission(user.id, PERMISSIONS.BOOK_LIST, "/");
   const permissions = await getEffectivePermissions(user.id);
 
   const query = searchParams?.q ?? "";

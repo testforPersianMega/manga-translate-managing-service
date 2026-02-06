@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission } from "@/lib/authorization";
+import { redirectIfNoPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 
 export default async function PermissionsPage() {
   const user = await getSessionUser();
   if (!user) return null;
-  await assertPermission(user.id, PERMISSIONS.ROLE_VIEW);
+  await redirectIfNoPermission(user.id, PERMISSIONS.ROLE_VIEW, "/");
 
   const permissions = await prisma.permission.findMany({ orderBy: { group: "asc" } });
 
