@@ -494,8 +494,8 @@ export function ImageOverlay({
       if (!imageSize || !displaySize.width || !displaySize.height) return;
       const widthScale = displaySize.width / imageSize.width;
       const heightScale = displaySize.height / imageSize.height;
-      const deltaX = (event.clientX - current.startX) / widthScale;
-      const deltaY = (event.clientY - current.startY) / heightScale;
+      const deltaX = (event.clientX - current.startX) / (widthScale * zoom);
+      const deltaY = (event.clientY - current.startY) / (heightScale * zoom);
       let { xMin, xMax, yMin, yMax } = current.startEdges;
       switch (current.handle) {
         case "nw":
@@ -559,6 +559,7 @@ export function ImageOverlay({
     normalizeBounds,
     onCommitResize,
     onUpdateBubble,
+    zoom,
   ]);
 
   return (
