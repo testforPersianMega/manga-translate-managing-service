@@ -1,0 +1,54 @@
+export type ChapterAsset = {
+  pageIndex: number;
+  assetId: string;
+  imageUrl: string;
+  jsonUrl: string | null;
+  fileName?: string;
+};
+
+export type BubbleBBox = {
+  x_min: number;
+  y_min: number;
+  x_max: number;
+  y_max: number;
+  xMin?: number;
+  yMin?: number;
+  xMax?: number;
+  yMax?: number;
+};
+
+export type BubbleItem = {
+  id?: number | string;
+  order?: number;
+  text?: string;
+  text_original?: string;
+  bubble_type?: string;
+  bbox_bubble?: BubbleBBox;
+  bbox_text?: BubbleBBox;
+  [key: string]: unknown;
+};
+
+export type PageJson = {
+  image_size?: { width: number; height: number };
+  items: BubbleItem[];
+  [key: string]: unknown;
+};
+
+export type HistoryEntry = {
+  snapshot: PageJson;
+  label: string;
+  timestamp: number;
+};
+
+export type HistoryState = {
+  undoStack: HistoryEntry[];
+  redoStack: HistoryEntry[];
+};
+
+export type PageState = {
+  asset: ChapterAsset;
+  json: PageJson | null;
+  isJsonLoading: boolean;
+  selectedBubbleIndex: number;
+  history: HistoryState;
+};
