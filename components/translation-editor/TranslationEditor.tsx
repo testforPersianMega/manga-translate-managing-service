@@ -11,7 +11,14 @@ import { HistoryPanel } from "./components/HistoryPanel";
 import { ImageOverlay } from "./components/ImageOverlay";
 import { PageSwitcher } from "./components/PageSwitcher";
 import { Toolbar } from "./components/Toolbar";
-import { getItemBbox, getOrderedBubbleIndices } from "./utils";
+import {
+  autoOrderBubbles,
+  clampValue,
+  getBboxEdges,
+  getItemBbox,
+  getOrderedBubbleIndices,
+  reorderBubbleToPosition,
+} from "./utils";
 import type { PageJson } from "./types";
 
 const DEFAULT_MARGIN = 80;
@@ -42,8 +49,20 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     setStatusMessage,
   } = useEditorState(chapterId);
 
-  const { zoom, transform, zoomIn, zoomOut, reset, panBy, panTo, wheelZoom, panStep } =
-    useZoomPan();
+  const {
+    zoom,
+    pan,
+    canPan,
+    transform,
+    zoomIn,
+    zoomOut,
+    reset,
+    panBy,
+    panTo,
+    wheelZoom,
+    panStep,
+    setStageMetrics,
+  } = useZoomPan();
 
   const [autoPanEnabled, setAutoPanEnabled] = useState(true);
   const [bubbleMargin, setBubbleMargin] = useState(DEFAULT_MARGIN);
@@ -53,6 +72,8 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     displayHeight: 0,
     imageWidth: 0,
     imageHeight: 0,
+    wrapperWidth: 0,
+    wrapperHeight: 0,
   });
 
   const items = currentPage?.json?.items ?? [];
@@ -72,17 +93,61 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   const ensureBubbleInView = useCallback(() => {
     if (!autoPanEnabled || !currentPage?.json || selectedIndex < 0) return;
     const item = currentPage.json.items[selectedIndex];
-    const bbox = getItemBbox(item);
-    if (!bbox || !metrics.displayWidth || !metrics.displayHeight) return;
+    const edges = getBboxEdges(getItemBbox(item));
+    if (
+      !edges ||
+      !metrics.displayWidth ||
+      !metrics.displayHeight ||
+      !metrics.wrapperWidth ||
+      !metrics.wrapperHeight
+    ) {
+      return;
+    }
     const widthScale = metrics.displayWidth / (metrics.imageWidth || metrics.displayWidth);
     const heightScale = metrics.displayHeight / (metrics.imageHeight || metrics.displayHeight);
-    const centerX = (bbox.x_min + bbox.x_max) / 2 * widthScale;
-    const centerY = (bbox.y_min + bbox.y_max) / 2 * heightScale;
-    const targetX = metrics.displayWidth / 2 - centerX * zoom;
-    const targetY = metrics.displayHeight / 2 - centerY * zoom;
-    const marginX = Math.sign(targetX) * bubbleMargin;
-    const marginY = Math.sign(targetY) * bubbleMargin;
-    panTo(targetX + marginX, targetY + marginY);
+    const xMin = edges.xMin * widthScale;
+    const xMax = edges.xMax * widthScale;
+    const yMin = edges.yMin * heightScale;
+    const yMax = edges.yMax * heightScale;
+
+    const stageCenterX = metrics.displayWidth / 2;
+    const stageCenterY = metrics.displayHeight / 2;
+    const leftEdge = (xMin - stageCenterX) * zoom + pan.x;
+    const rightEdge = (xMax - stageCenterX) * zoom + pan.x;
+    const topEdge = (yMin - stageCenterY) * zoom + pan.y;
+    const bottomEdge = (yMax - stageCenterY) * zoom + pan.y;
+
+    const margin = bubbleMargin;
+    const leftBound = -metrics.wrapperWidth / 2 + margin;
+    const rightBound = metrics.wrapperWidth / 2 - margin;
+    const topBound = -metrics.wrapperHeight / 2 + margin;
+    const bottomBound = metrics.wrapperHeight / 2 - margin;
+
+    const bubbleWidth = (xMax - xMin) * zoom;
+    const bubbleHeight = (yMax - yMin) * zoom;
+    const bubbleCenterX = (xMin + xMax) / 2;
+    const bubbleCenterY = (yMin + yMax) / 2;
+
+    let nextPanX = pan.x;
+    let nextPanY = pan.y;
+
+    if (bubbleWidth + margin * 2 > metrics.wrapperWidth) {
+      nextPanX = -((bubbleCenterX - stageCenterX) * zoom);
+    } else if (leftEdge < leftBound) {
+      nextPanX += leftBound - leftEdge;
+    } else if (rightEdge > rightBound) {
+      nextPanX += rightBound - rightEdge;
+    }
+
+    if (bubbleHeight + margin * 2 > metrics.wrapperHeight) {
+      nextPanY = -((bubbleCenterY - stageCenterY) * zoom);
+    } else if (topEdge < topBound) {
+      nextPanY += topBound - topEdge;
+    } else if (bottomEdge > bottomBound) {
+      nextPanY += bottomBound - bottomEdge;
+    }
+
+    panTo(nextPanX, nextPanY);
   }, [
     autoPanEnabled,
     bubbleMargin,
@@ -91,6 +156,10 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     metrics.displayWidth,
     metrics.imageHeight,
     metrics.imageWidth,
+    metrics.wrapperHeight,
+    metrics.wrapperWidth,
+    pan.x,
+    pan.y,
     panTo,
     selectedIndex,
     zoom,
@@ -166,13 +235,9 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
       updateCurrentJson((json) => {
         const ordered = getOrderedBubbleIndices(json);
         const currentPosition = ordered.indexOf(selectedIndex);
-        const nextPosition = Math.max(0, Math.min(value - 1, ordered.length - 1));
         if (currentPosition === -1) return json;
-        ordered.splice(currentPosition, 1);
-        ordered.splice(nextPosition, 0, selectedIndex);
-        ordered.forEach((index, position) => {
-          json.items[index] = { ...json.items[index], order: position + 1 };
-        });
+        const clampedOrder = clampValue(value, 1, ordered.length);
+        reorderBubbleToPosition(json, selectedIndex, clampedOrder - 1);
         return json;
       }, "manual order change");
       setManualOrderNotice(true);
@@ -193,14 +258,25 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
 
   const handleAutoOrder = useCallback(() => {
     updateCurrentJson((json) => {
-      const ordered = getOrderedBubbleIndices(json, { ignoreExplicitOrder: true });
-      ordered.forEach((index, position) => {
-        json.items[index] = { ...json.items[index], order: position + 1 };
-      });
+      autoOrderBubbles(json);
       return json;
     }, "auto order");
     setManualOrderNotice(false);
   }, [updateCurrentJson]);
+
+  const handleReorder = useCallback(
+    (fromIndex: number, targetIndex: number) => {
+      updateCurrentJson((json) => {
+        const ordered = getOrderedBubbleIndices(json);
+        const targetPosition = ordered.indexOf(targetIndex);
+        if (targetPosition === -1 || fromIndex === targetIndex) return json;
+        reorderBubbleToPosition(json, fromIndex, targetPosition);
+        return json;
+      }, "drag reorder");
+      setManualOrderNotice(true);
+    },
+    [updateCurrentJson],
+  );
 
   const hasJson = Boolean(currentPage?.json);
   const canSave = hasJson && canEdit;
@@ -238,18 +314,6 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
       </div>
       {errorMessage && <div className={styles.errorBanner}>{errorMessage}</div>}
       {statusMessage && <div className={styles.statusBanner}>{statusMessage}</div>}
-      <Toolbar
-        canEdit={canEdit}
-        canSave={canSave}
-        zoom={zoom}
-        onSave={onSave}
-        onDownload={onDownload}
-        onUndo={undo}
-        onRedo={redo}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
-        onResetZoom={reset}
-      />
       <div className={styles.contentGrid}>
         <div className={styles.column}>
           <PageSwitcher
@@ -261,14 +325,29 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
           />
         </div>
         <div className={styles.previewColumn}>
+          <Toolbar
+            canEdit={canEdit}
+            canSave={canSave}
+            zoom={zoom}
+            onSave={onSave}
+            onDownload={onDownload}
+            onUndo={undo}
+            onRedo={redo}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onResetZoom={reset}
+          />
           <ImageOverlay
             imageUrl={currentPage?.asset.imageUrl ?? null}
             json={currentPage?.json ?? null}
             selectedIndex={selectedIndex}
+            pan={pan}
+            canPan={canPan}
             transformStyle={transform}
             onSelect={setSelectedBubbleIndex}
             onWheelZoom={wheelZoom}
-            onPanBy={panBy}
+            onPanTo={panTo}
+            onStageMetricsChange={setStageMetrics}
             onMetricsChange={setMetrics}
           />
         </div>
@@ -278,6 +357,8 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
             orderedIndices={orderedBubbleIndices}
             selectedIndex={selectedIndex}
             onSelect={setSelectedBubbleIndex}
+            onReorder={handleReorder}
+            readOnly={!canEdit}
           />
           <BubbleDetails
             item={selectedItem}

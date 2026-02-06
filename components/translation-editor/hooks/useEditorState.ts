@@ -8,7 +8,11 @@ import {
   createHistoryState,
   pushHistory,
 } from "./useHistory";
-import { getOrderedBubbleIndices } from "../utils";
+import {
+  applyInitialOverlapOrdering,
+  ensureBubbleOrders,
+  getOrderedBubbleIndices,
+} from "../utils";
 
 const clampIndex = (index: number, length: number) => {
   if (length <= 0) return -1;
@@ -38,6 +42,8 @@ export const useEditorState = (chapterId: string) => {
         isJsonLoading: Boolean(asset.jsonUrl),
         selectedBubbleIndex: -1,
         history: createHistoryState(),
+        manualOrderChanged: false,
+        overlapOrdered: false,
       }));
       setPages(nextPages);
       setCurrentPageIndex(0);
@@ -69,6 +75,8 @@ export const useEditorState = (chapterId: string) => {
           return;
         }
         const jsonData = (await response.json()) as PageJson;
+        ensureBubbleOrders(jsonData);
+        applyInitialOverlapOrdering(jsonData);
         if (!active) return;
         setPages((prev) =>
           prev.map((item, index) =>
@@ -81,6 +89,7 @@ export const useEditorState = (chapterId: string) => {
                     item.selectedBubbleIndex,
                     jsonData.items?.length ?? 0,
                   ),
+                  overlapOrdered: true,
                 }
               : item,
           ),

@@ -51,4 +51,6 @@ export type PageState = {
   isJsonLoading: boolean;
   selectedBubbleIndex: number;
   history: HistoryState;
+  manualOrderChanged?: boolean;
+  overlapOrdered?: boolean;
 };
