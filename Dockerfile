@@ -15,6 +15,8 @@ RUN if [ -f package-lock.json ]; then npm ci; \
 
 COPY . .
 
+ENV NEXT_DISABLE_SWC_BINARY_DOWNLOAD=1
+
 RUN npm run prisma:generate
 RUN npm run build
 
