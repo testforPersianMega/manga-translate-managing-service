@@ -55,6 +55,7 @@ export function ImageOverlay({
     if (event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     if (!target) return;
+    if (target.closest("[data-overlay='true']")) return;
     if (target.closest("input, textarea, [contenteditable='true']")) return;
     if (target.isContentEditable) return;
     event.preventDefault();
