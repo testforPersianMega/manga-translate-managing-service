@@ -51,6 +51,14 @@ export function ImageOverlay({
   const activePointerId = useRef<number | null>(null);
   const panRaf = useRef<number | null>(null);
   const pendingPan = useRef<{ x: number; y: number } | null>(null);
+  const handlePointerDownCapture = (event: React.PointerEvent) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest("input, textarea, [contenteditable='true']")) return;
+    if (target.isContentEditable) return;
+    event.preventDefault();
+  };
 
   useEffect(() => {
     if (!imageRef.current) return;
@@ -235,13 +243,12 @@ export function ImageOverlay({
         const cursorY = event.clientY - rect.top - rect.height / 2;
         onWheelZoom(event.deltaY, cursorX, cursorY);
       }}
-      onSelectCapture={(event) => event.preventDefault()}
+      onPointerDownCapture={handlePointerDownCapture}
       draggable={false}
     >
       <div
         className={styles.imageTransform}
         style={transformStyle}
-        onSelectCapture={(event) => event.preventDefault()}
         draggable={false}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -257,7 +264,6 @@ export function ImageOverlay({
             alt="Chapter page"
             className={styles.image}
             draggable={false}
-            onSelectCapture={(event) => event.preventDefault()}
           />
         ) : (
           <div className={styles.imagePlaceholder}>Select a page to preview.</div>
