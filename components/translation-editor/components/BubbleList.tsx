@@ -86,7 +86,7 @@ export function BubbleList({
                     ? `${styles.bubbleButton} ${styles.bubbleButtonActive}`
                     : styles.bubbleButton
                 }
-                onClick={() => onSelect(index)}
+                onClick={() => onSelect(index === selectedIndex ? -1 : index)}
               >
                 {formatBubbleLabel(order, id, String(item.text ?? ""))}
               </button>

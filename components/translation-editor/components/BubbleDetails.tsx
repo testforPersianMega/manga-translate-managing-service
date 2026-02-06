@@ -100,7 +100,7 @@ export function BubbleDetails({
       <div className={styles.formField}>
         <label className={styles.formLabel}>Translated Text</label>
         <textarea
-          className={styles.textarea}
+          className={`${styles.textarea} ${styles.translatedTextarea}`}
           value={textValue}
           onFocus={() => {
             snapshotRef.current = json ? JSON.parse(JSON.stringify(json)) : null;
