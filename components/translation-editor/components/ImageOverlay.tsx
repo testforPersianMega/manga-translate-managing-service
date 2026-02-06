@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PageJson } from "../types";
 import { getBboxEdges, getItemBbox } from "../utils";
 import styles from "../translation-editor.module.css";
@@ -60,6 +60,14 @@ export function ImageOverlay({
     if (target.isContentEditable) return;
     event.preventDefault();
   };
+  const handleSelectStart = useCallback((event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest("[data-overlay='true']")) return;
+    if (target.closest("input, textarea, [contenteditable='true']")) return;
+    if (target.isContentEditable) return;
+    event.preventDefault();
+  }, []);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -78,10 +86,12 @@ export function ImageOverlay({
       onWheelZoom(event.deltaY, cursorX, cursorY);
     };
     wrapper.addEventListener("wheel", handleWheel, { passive: false });
+    wrapper.addEventListener("selectstart", handleSelectStart);
     return () => {
       wrapper.removeEventListener("wheel", handleWheel);
+      wrapper.removeEventListener("selectstart", handleSelectStart);
     };
-  }, [onWheelZoom]);
+  }, [handleSelectStart, onWheelZoom]);
 
   useEffect(() => {
     if (!imageRef.current) return;
@@ -260,10 +270,6 @@ export function ImageOverlay({
       }`}
       onPointerDownCapture={handlePointerDownCapture}
       draggable={false}
-      onSelectStart={(event) => {
-        event.preventDefault();
-        return false;
-      }}
     >
       <div
         className={`${styles.imageTransform} ${isDragging ? styles.imageTransformDragging : ""}`}
@@ -283,10 +289,6 @@ export function ImageOverlay({
             alt="Chapter page"
             className={styles.image}
             draggable={false}
-            onSelectStart={(event) => {
-              event.preventDefault();
-              return false;
-            }}
           />
         ) : (
           <div className={styles.imagePlaceholder}>Select a page to preview.</div>
