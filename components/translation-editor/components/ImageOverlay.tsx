@@ -97,6 +97,7 @@ export function ImageOverlay({
     if (event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     if (!target) return;
+    if (target.closest("[data-image-toolbar]")) return;
     if (target.closest("[data-overlay='true']")) return;
     if (target.closest("input, textarea, [contenteditable='true']")) return;
     if (target.isContentEditable) return;
@@ -105,6 +106,7 @@ export function ImageOverlay({
   const handleSelectStart = useCallback((event: Event) => {
     const target = event.target as HTMLElement | null;
     if (!target) return;
+    if (target.closest("[data-image-toolbar]")) return;
     if (target.closest("[data-overlay='true']")) return;
     if (target.closest("input, textarea, [contenteditable='true']")) return;
     if (target.isContentEditable) return;
