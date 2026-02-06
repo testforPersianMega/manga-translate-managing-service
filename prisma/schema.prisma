@@ -38,6 +38,8 @@ model User {
   permissionDenies UserPermissionDeny[]
   bookAccess      BookAccess[]
   assignedChapters Chapter[]             @relation("ChapterAssignments")
+  activityLogs    ActivityLog[]          @relation("ActivityActor")
+  targetedLogs    ActivityLog[]          @relation("ActivityTarget")
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 }
@@ -123,6 +125,9 @@ model Chapter {
   assignedToUser   User?         @relation("ChapterAssignments", fields: [assignedToUserId], references: [id])
   claimedAt        DateTime?
   book             Book          @relation(fields: [bookId], references: [id])
+  assets           ChapterAsset[]
+  pageJsons        ChapterPageJson[]
+  uploadBatches    ChapterUploadBatch[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -137,4 +142,57 @@ model InviteToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
   usedAt    DateTime?
+}
+
+model ChapterAsset {
+  id        String    @id @default(cuid())
+  chapterId String
+  chapter   Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  pageIndex Int
+  filePath  String
+  fileName  String
+  mimeType  String
+  size      Int
+  width     Int?
+  height    Int?
+  pageJson  ChapterPageJson?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([chapterId, pageIndex])
+  @@index([chapterId, pageIndex])
+}
+
+model ChapterPageJson {
+  id           String        @id @default(cuid())
+  chapterId    String
+  chapter      Chapter       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  assetId      String        @unique
+  asset        ChapterAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  jsonPath     String
+  jsonFileName String
+  size         Int
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model ChapterUploadBatch {
+  id               String   @id @default(cuid())
+  chapterId        String
+  chapter          Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  uploadedByUserId String?
+  uploadedByUser   User?    @relation(fields: [uploadedByUserId], references: [id])
+  type             String
+  createdAt        DateTime @default(now())
+}
+
+model ActivityLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  targetUserId String?
+  action       String
+  metadata     Json?
+  actor        User?    @relation("ActivityActor", fields: [actorUserId], references: [id])
+  target       User?    @relation("ActivityTarget", fields: [targetUserId], references: [id])
+  createdAt    DateTime @default(now())
 }

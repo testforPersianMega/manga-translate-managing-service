@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/auth";
 import { assertPermission, getEffectivePermissions } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
+import bcrypt from "bcrypt";
+import { z } from "zod";
 
 interface UserDetailPageProps {
   params: { id: string };
@@ -31,6 +33,8 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
   const permissions = await prisma.permission.findMany({ orderBy: { key: "asc" } });
   const books = await prisma.book.findMany({ orderBy: { titleFa: "asc" } });
   const effectivePermissions = await getEffectivePermissions(user.id);
+  const actorPermissions = await getEffectivePermissions(sessionUser.id);
+  const canResetPassword = actorPermissions.has(PERMISSIONS.USER_RESET_PASSWORD);
 
   async function updateUser(formData: FormData) {
     "use server";
@@ -99,6 +103,49 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
           userId: params.id,
           bookId,
         })),
+      }),
+    ]);
+    redirect(`/users/${params.id}`);
+  }
+
+  async function resetPassword(formData: FormData) {
+    "use server";
+    const actor = await getSessionUser();
+    if (!actor) return;
+    await assertPermission(actor.id, PERMISSIONS.USER_RESET_PASSWORD);
+
+    const schema = z
+      .object({
+        newPassword: z.string().min(8, "رمز عبور باید حداقل ۸ کاراکتر باشد"),
+        confirmPassword: z.string().min(1, "تکرار رمز عبور الزامی است"),
+      })
+      .refine((data) => data.newPassword === data.confirmPassword, {
+        message: "تکرار رمز عبور با رمز جدید یکسان نیست",
+        path: ["confirmPassword"],
+      });
+
+    const parsed = schema.safeParse({
+      newPassword: String(formData.get("newPassword") ?? ""),
+      confirmPassword: String(formData.get("confirmPassword") ?? ""),
+    });
+
+    if (!parsed.success) {
+      throw new Error(parsed.error.errors[0]?.message ?? "اطلاعات نامعتبر");
+    }
+
+    const hashed = await bcrypt.hash(parsed.data.newPassword, 10);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: params.id },
+        data: { passwordHash: hashed },
+      }),
+      prisma.activityLog.create({
+        data: {
+          actorUserId: actor.id,
+          targetUserId: params.id,
+          action: "USER_RESET_PASSWORD",
+          metadata: { via: "admin_panel" },
+        },
       }),
     ]);
     redirect(`/users/${params.id}`);
@@ -202,35 +249,57 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
           </form>
         </div>
 
-        <div className="card">
-          <h3 className="text-sm font-semibold">محدوده کتاب‌ها</h3>
-          <form action={updateScope} className="mt-4 space-y-4">
-            <div className="space-y-2">
-              <label>نوع محدوده</label>
-              <select name="scopeMode" defaultValue={user.scopeMode}>
-                <option value="ALL_BOOKS">همه کتاب‌ها</option>
-                <option value="SELECTED_BOOKS">کتاب‌های انتخابی</option>
-              </select>
+        <div className="space-y-4">
+          <div className="card">
+            <h3 className="text-sm font-semibold">محدوده کتاب‌ها</h3>
+            <form action={updateScope} className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <label>نوع محدوده</label>
+                <select name="scopeMode" defaultValue={user.scopeMode}>
+                  <option value="ALL_BOOKS">همه کتاب‌ها</option>
+                  <option value="SELECTED_BOOKS">کتاب‌های انتخابی</option>
+                </select>
+              </div>
+              <div className="max-h-48 space-y-2 overflow-auto">
+                {books.map((book) => (
+                  <label key={book.id} className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      name="books"
+                      value={book.id}
+                      defaultChecked={user.bookAccess.some(
+                        (access) => access.bookId === book.id,
+                      )}
+                    />
+                    {book.titleFa}
+                  </label>
+                ))}
+              </div>
+              <button className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm text-white">
+                ذخیره محدوده
+              </button>
+            </form>
+          </div>
+
+          {canResetPassword && (
+            <div className="card">
+              <h3 className="text-sm font-semibold">بازنشانی رمز عبور</h3>
+              <p className="mt-2 text-xs text-gray-500">
+                این عملیات بدون نیاز به رمز فعلی انجام می‌شود.
+              </p>
+              <form action={resetPassword} className="mt-4 space-y-3">
+                <input name="newPassword" type="password" placeholder="رمز عبور جدید" />
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="تکرار رمز عبور جدید"
+                />
+                <button className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm text-white">
+                  ثبت رمز جدید
+                </button>
+              </form>
             </div>
-            <div className="max-h-48 space-y-2 overflow-auto">
-              {books.map((book) => (
-                <label key={book.id} className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    name="books"
-                    value={book.id}
-                    defaultChecked={user.bookAccess.some(
-                      (access) => access.bookId === book.id,
-                    )}
-                  />
-                  {book.titleFa}
-                </label>
-              ))}
-            </div>
-            <button className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm text-white">
-              ذخیره محدوده
-            </button>
-          </form>
+          )}
         </div>
       </div>
     </div>
