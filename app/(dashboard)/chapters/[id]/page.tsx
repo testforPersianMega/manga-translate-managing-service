@@ -9,6 +9,7 @@ import {
 } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
+import ChapterActionButton from "@/components/ChapterActionButton";
 
 interface ChapterDetailPageProps {
   params: { id: string };
@@ -172,17 +173,21 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
           <div className="flex flex-wrap gap-2">
             {canClaim && chapter.status === "AVAILABLE" && (
               <form action={claimChapter}>
-                <button className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white">
-                  برداشتن چپتر
-                </button>
+                <ChapterActionButton
+                  label="برداشتن چپتر"
+                  pendingLabel="در حال برداشتن..."
+                  className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white"
+                />
               </form>
             )}
             {permissions.has(PERMISSIONS.CHAPTER_UNCLAIM) &&
               chapter.assignedToUserId === user.id && (
                 <form action={unclaimChapter}>
-                  <button className="rounded-md border border-gray-300 px-3 py-2 text-xs">
-                    رها کردن
-                  </button>
+                  <ChapterActionButton
+                    label="رها کردن"
+                    pendingLabel="در حال رها کردن..."
+                    className="rounded-md border border-gray-300 px-3 py-2 text-xs"
+                  />
                 </form>
               )}
           </div>
@@ -200,9 +205,11 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
                   </option>
                 ))}
               </select>
-              <button className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white">
-                ذخیره تخصیص
-              </button>
+              <ChapterActionButton
+                label="ذخیره تخصیص"
+                pendingLabel="در حال ذخیره..."
+                className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white"
+              />
             </form>
           </div>
         )}
@@ -218,9 +225,11 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
               <option value="IN_PROGRESS">در حال انجام</option>
               <option value="DONE">انجام شده</option>
             </select>
-            <button className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white">
-              ثبت وضعیت
-            </button>
+            <ChapterActionButton
+              label="ثبت وضعیت"
+              pendingLabel="در حال ثبت..."
+              className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white"
+            />
           </form>
         </div>
       )}
@@ -231,9 +240,11 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
           <form action={updateMetadata} className="mt-3 space-y-2">
             <input name="number" defaultValue={chapter.number} />
             <input name="title" defaultValue={chapter.title ?? ""} />
-            <button className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white">
-              ذخیره متادیتا
-            </button>
+            <ChapterActionButton
+              label="ذخیره متادیتا"
+              pendingLabel="در حال ذخیره..."
+              className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white"
+            />
           </form>
         </div>
       )}
