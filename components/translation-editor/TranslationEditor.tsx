@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./translation-editor.module.css";
 import { useEditorState } from "./hooks/useEditorState";
 import { useShortcuts } from "./hooks/useShortcuts";
@@ -75,6 +75,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     wrapperWidth: 0,
     wrapperHeight: 0,
   });
+  const panRef = useRef(pan);
 
   const items = currentPage?.json?.items ?? [];
   const selectedIndex = currentPage?.selectedBubbleIndex ?? -1;
@@ -89,6 +90,10 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   useEffect(() => {
     setManualOrderNotice(false);
   }, [currentPageIndex]);
+
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
 
   const ensureBubbleInView = useCallback(() => {
     if (!autoPanEnabled || !currentPage?.json || selectedIndex < 0) return;
@@ -112,10 +117,11 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
 
     const stageCenterX = metrics.displayWidth / 2;
     const stageCenterY = metrics.displayHeight / 2;
-    const leftEdge = (xMin - stageCenterX) * zoom + pan.x;
-    const rightEdge = (xMax - stageCenterX) * zoom + pan.x;
-    const topEdge = (yMin - stageCenterY) * zoom + pan.y;
-    const bottomEdge = (yMax - stageCenterY) * zoom + pan.y;
+    const currentPan = panRef.current;
+    const leftEdge = (xMin - stageCenterX) * zoom + currentPan.x;
+    const rightEdge = (xMax - stageCenterX) * zoom + currentPan.x;
+    const topEdge = (yMin - stageCenterY) * zoom + currentPan.y;
+    const bottomEdge = (yMax - stageCenterY) * zoom + currentPan.y;
 
     const margin = bubbleMargin;
     const leftBound = -metrics.wrapperWidth / 2 + margin;
@@ -128,8 +134,8 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     const bubbleCenterX = (xMin + xMax) / 2;
     const bubbleCenterY = (yMin + yMax) / 2;
 
-    let nextPanX = pan.x;
-    let nextPanY = pan.y;
+    let nextPanX = currentPan.x;
+    let nextPanY = currentPan.y;
 
     if (bubbleWidth + margin * 2 > metrics.wrapperWidth) {
       nextPanX = -((bubbleCenterX - stageCenterX) * zoom);
@@ -158,8 +164,6 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     metrics.imageWidth,
     metrics.wrapperHeight,
     metrics.wrapperWidth,
-    pan.x,
-    pan.y,
     panTo,
     selectedIndex,
     zoom,
