@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manga Bubble Translator</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Manga Bubble Translator</h1>
+        <div class="status" id="statusText">No image or JSON loaded.</div>
+      </div>
+      <div class="toolbar">
+        <label>
+          Upload Images
+          <input
+            type="file"
+            id="imageInput"
+            accept="image/png, image/jpeg"
+            multiple
+          />
+        </label>
+        <label>
+          Upload JSONs
+          <input
+            type="file"
+            id="jsonInput"
+            accept="application/json"
+            multiple
+          />
+        </label>
+        <button id="downloadBtn" disabled>Download JSON</button>
+        <button id="downloadAllBtn" disabled>Download All JSONs</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel left-panel">
+        <strong>Pages</strong>
+        <div class="page-list" id="pageList"></div>
+        <strong>Bubble List</strong>
+        <div class="bubble-list" id="bubbleList"></div>
+      </section>
+
+      <section class="image-panel">
+        <div
+          class="panel image-wrapper"
+          id="imageWrapper"
+          onselectstart="return false;"
+          draggable="false"
+        >
+          <div
+            class="image-toolbar"
+            aria-label="Image tools"
+            onselectstart="return false;"
+            draggable="false"
+          >
+            <button type="button" id="zoomOutBtn" title="Zoom out">-</button>
+            <button type="button" id="zoomInBtn" title="Zoom in">+</button>
+            <button type="button" id="zoomResetBtn" title="Reset zoom (R)">
+              Reset
+            </button>
+            <input
+              class="zoom-range"
+              type="range"
+              id="zoomRange"
+              min="40"
+              max="300"
+              step="5"
+              value="100"
+              aria-label="Zoom level"
+            />
+            <span class="zoom-label" id="zoomLabel">100%</span>
+            <button type="button" id="addBubbleBtn" title="Add bubble">
+              Add Bubble
+            </button>
+            <button
+              type="button"
+              id="removeBubbleBtn"
+              title="Remove selected bubble"
+            >
+              Remove Bubble
+            </button>
+            <button type="button" id="undoBtn" title="Undo (Ctrl/Cmd+Z)">
+              Undo
+            </button>
+            <button type="button" id="redoBtn" title="Redo (Ctrl/Cmd+Shift+Z)">
+              Redo
+            </button>
+          </div>
+          <div class="placeholder" id="imagePlaceholder">
+            Upload an image to begin.
+          </div>
+          <div
+            class="image-stage"
+            id="imageStage"
+            onselectstart="return false;"
+            draggable="false"
+          >
+            <img
+              id="mainImage"
+              onselectstart="return false;"
+              draggable="false"
+              alt="Uploaded preview"
+            />
+            <div class="overlay-layer" id="overlayLayer"></div>
+          </div>
+        </div>
+        <div class="error" id="errorText"></div>
+      </section>
+
+      <section class="panel right-panel">
+        <h2>Bubble Details</h2>
+        <div id="detailPlaceholder" class="placeholder">
+          Select a bubble to edit its translation.
+        </div>
+        <div id="detailForm" hidden>
+          <div class="field">
+            <label>Bubble ID</label>
+            <input id="bubbleId" type="text" readonly />
+          </div>
+          <div class="field">
+            <label>Order</label>
+            <input id="bubbleOrder" type="number" min="1" step="1" />
+          </div>
+          <div class="field">
+            <button type="button" id="autoOrderBtn" class="action-button">
+              Auto Order Bubbles
+            </button>
+            <div id="manualOrderNotice" class="manual-order-alert" hidden>
+              Order was changed manually. Use auto order to reset.
+            </div>
+          </div>
+          <div class="field">
+            <label>Original Text</label>
+            <textarea id="bubbleOriginal" readonly></textarea>
+          </div>
+          <div class="field">
+            <label>Translated Text</label>
+            <textarea id="bubbleText"></textarea>
+          </div>
+          <div class="field">
+            <label>Bubble Type</label>
+            <select id="bubbleType">
+              <option>Standard</option>
+              <option>Thought</option>
+              <option>Shouting</option>
+              <option>Whisper/Soft</option>
+              <option>Narration</option>
+              <option>Distorted/Custom</option>
+              <option>SFX</option>
+            </select>
+          </div>
+        </div>
+        <h2>Settings</h2>
+        <div class="field">
+          <label>
+            <input type="checkbox" id="autoPanToggle" checked />
+            Auto-pan bubble into view on arrow navigation
+          </label>
+        </div>
+        <div class="field">
+          <label for="bubbleMarginInput">Bubble view margin (px)</label>
+          <input
+            id="bubbleMarginInput"
+            type="number"
+            min="0"
+            max="300"
+            step="5"
+            value="80"
+          />
+        </div>
+        <h2>History</h2>
+        <section class="history-panel">
+          <div class="history-actions">
+            <button type="button" id="historyUndoBtn" class="action-button">
+              Undo
+            </button>
+            <button type="button" id="historyRedoBtn" class="action-button">
+              Redo
+            </button>
+            <button type="button" id="historyClearBtn" class="action-button">
+              Clear History
+            </button>
+          </div>
+          <div class="history-meta" id="historySummary">No changes yet.</div>
+          <div class="history-list" aria-live="polite">
+            <h3>Undo</h3>
+            <ul id="undoHistoryList"></ul>
+          </div>
+          <div class="history-list" aria-live="polite">
+            <h3>Redo</h3>
+            <ul id="redoHistoryList"></ul>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="js/app.js" defer></script>
+  </body>
+</html>
