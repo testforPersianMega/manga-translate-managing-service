@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { assertPermission } from "@/lib/authorization";
+import { assertPermission, redirectIfNoPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/permissions";
 import bcrypt from "bcrypt";
 import { redirect } from "next/navigation";
@@ -13,7 +13,7 @@ interface NewUserPageProps {
 export default async function NewUserPage({ searchParams }: NewUserPageProps) {
   const user = await getSessionUser();
   if (!user) return null;
-  await assertPermission(user.id, PERMISSIONS.USER_CREATE);
+  await redirectIfNoPermission(user.id, PERMISSIONS.USER_CREATE, "/users");
 
   const roles = await prisma.role.findMany({ orderBy: { name: "asc" } });
   const inviteToken = searchParams?.invite;
