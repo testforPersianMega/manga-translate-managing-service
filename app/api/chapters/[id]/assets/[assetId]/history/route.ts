@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { canEditChapter, canViewChapter, getEffectivePermissions } from "@/lib/authorization";
@@ -15,6 +16,13 @@ type HistoryEntryInput = {
   meta?: unknown;
   metadata?: unknown;
 };
+
+const isJsonValue = (value: unknown): value is Prisma.InputJsonValue =>
+  value !== undefined &&
+  value !== null &&
+  typeof value !== "function" &&
+  typeof value !== "symbol" &&
+  typeof value !== "bigint";
 
 export async function GET(_: Request, { params }: RouteParams) {
   try {
@@ -100,15 +108,19 @@ export async function POST(request: Request, { params }: RouteParams) {
         ? [body.entry]
         : [];
 
-    const data = entries
-      .filter((entry) => entry?.label && entry?.snapshot && typeof entry.snapshot === "object")
-      .map((entry) => ({
-        chapterId: chapter.id,
-        assetId: asset.id,
-        label: String(entry.label),
-        snapshot: entry.snapshot,
-        metadata: entry.meta ?? entry.metadata ?? null,
-      }));
+    const data: Prisma.ChapterPageHistoryCreateManyInput[] = entries
+      .filter((entry) => entry?.label && isJsonValue(entry?.snapshot))
+      .map((entry) => {
+        const metadataValue = entry.meta ?? entry.metadata;
+
+        return {
+          chapterId: chapter.id,
+          assetId: asset.id,
+          label: String(entry.label),
+          snapshot: entry.snapshot as Prisma.InputJsonValue,
+          metadata: isJsonValue(metadataValue) ? metadataValue : Prisma.JsonNull,
+        };
+      });
 
     if (!data.length) {
       return NextResponse.json({ error: "ورودی نامعتبر" }, { status: 400 });
