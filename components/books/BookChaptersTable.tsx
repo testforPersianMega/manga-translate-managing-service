@@ -10,6 +10,8 @@ type ChapterRow = {
   status: string;
   translatedPages: number;
   totalPages: number;
+  assignedToUserId: string | null;
+  assignedToUserName: string | null;
 };
 
 type ChapterAction = (formData: FormData) => void | Promise<void>;
@@ -17,6 +19,7 @@ type ChapterAction = (formData: FormData) => void | Promise<void>;
 interface BookChaptersTableProps {
   chapters: ChapterRow[];
   canDelete: boolean;
+  currentUserId: string;
   onDeleteChapter: ChapterAction;
   onBulkDelete: ChapterAction;
 }
@@ -24,6 +27,7 @@ interface BookChaptersTableProps {
 export default function BookChaptersTable({
   chapters,
   canDelete,
+  currentUserId,
   onDeleteChapter,
   onBulkDelete,
 }: BookChaptersTableProps) {
@@ -84,50 +88,63 @@ export default function BookChaptersTable({
             {canDelete && <th className="w-10"></th>}
             <th>شماره</th>
             <th>عنوان</th>
+            <th>تخصیص</th>
             <th>وضعیت</th>
             <th>پیشرفت ترجمه</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {chapters.map((chapter) => (
-            <tr key={chapter.id}>
-              {canDelete && (
-                <td>
-                  <input
-                    type="checkbox"
-                    name="chapterIds"
-                    value={chapter.id}
-                    checked={selectedIds.includes(chapter.id)}
-                    onChange={() => toggleSelection(chapter.id)}
-                    aria-label={`انتخاب چپتر ${chapter.number}`}
-                  />
-                </td>
-              )}
-              <td>{chapter.number}</td>
-              <td>{chapter.title ?? "-"}</td>
-              <td>{chapter.status}</td>
-              <td>
-                {chapter.translatedPages}/{chapter.totalPages}
-              </td>
-              <td className="space-x-2 space-x-reverse">
-                <Link href={`/chapters/${chapter.id}`} className="text-blue-600">
-                  مشاهده
-                </Link>
+          {chapters.map((chapter) => {
+            const isMine = chapter.assignedToUserId === currentUserId;
+            return (
+              <tr key={chapter.id} className={isMine ? "bg-emerald-50" : undefined}>
                 {canDelete && (
-                  <button
-                    type="submit"
-                    formAction={onDeleteChapter}
-                    name="chapterId"
-                    value={chapter.id}
-                    className="text-xs text-red-600"
-                  >
-                    حذف
-                  </button>
+                  <td>
+                    <input
+                      type="checkbox"
+                      name="chapterIds"
+                      value={chapter.id}
+                      checked={selectedIds.includes(chapter.id)}
+                      onChange={() => toggleSelection(chapter.id)}
+                      aria-label={`انتخاب چپتر ${chapter.number}`}
+                    />
+                  </td>
                 )}
-              </td>
-            </tr>
-          ))}
+                <td className="space-x-2 space-x-reverse">
+                  <span>{chapter.number}</span>
+                  {isMine && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">
+                      <span aria-hidden="true">★</span>
+                      چپتر شما
+                    </span>
+                  )}
+                </td>
+                <td>{chapter.title ?? "-"}</td>
+                <td>{isMine ? "شما" : chapter.assignedToUserName ?? "-"}</td>
+                <td>{chapter.status}</td>
+                <td>
+                  {chapter.translatedPages}/{chapter.totalPages}
+                </td>
+                <td className="space-x-2 space-x-reverse">
+                  <Link href={`/chapters/${chapter.id}`} className="text-blue-600">
+                    مشاهده
+                  </Link>
+                  {canDelete && (
+                    <button
+                      type="submit"
+                      formAction={onDeleteChapter}
+                      name="chapterId"
+                      value={chapter.id}
+                      className="text-xs text-red-600"
+                    >
+                      حذف
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {canDelete && allSelected && (

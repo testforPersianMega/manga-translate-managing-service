@@ -31,7 +31,9 @@ export default async function TranslatePage({ params }: TranslatePageProps) {
 
   const canView = await canViewChapter(user, chapter);
   if (!canView) {
-    redirect("/books");
+    redirect(
+      `/books/${chapter.bookId}?notice=${encodeURIComponent("این چپتر برای شما نیست.")}`,
+    );
   }
 
   const canEdit =
