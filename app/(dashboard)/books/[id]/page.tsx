@@ -40,6 +40,33 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
   const canUpdateBook = permissions.has(PERMISSIONS.BOOK_UPDATE);
   const canDeleteBook = permissions.has(PERMISSIONS.BOOK_DELETE);
 
+  const chapterIds = book.chapters.map((chapter) => chapter.id);
+  const [chapterTotals, chapterTranslated] = chapterIds.length
+    ? await Promise.all([
+        prisma.chapterAsset.groupBy({
+          by: ["chapterId"],
+          where: { chapterId: { in: chapterIds } },
+          _count: { _all: true },
+        }),
+        prisma.chapterAsset.groupBy({
+          by: ["chapterId"],
+          where: { chapterId: { in: chapterIds }, isTranslated: true },
+          _count: { _all: true },
+        }),
+      ])
+    : [[], []];
+  const totalsMap = new Map(
+    chapterTotals.map((entry) => [entry.chapterId, entry._count._all]),
+  );
+  const translatedMap = new Map(
+    chapterTranslated.map((entry) => [entry.chapterId, entry._count._all]),
+  );
+  const totalPages = chapterTotals.reduce((sum, entry) => sum + entry._count._all, 0);
+  const translatedPages = chapterTranslated.reduce(
+    (sum, entry) => sum + entry._count._all,
+    0,
+  );
+
   const accessUsers = await prisma.bookAccess.findMany({
     where: { bookId: book.id },
     include: { user: true },
@@ -221,8 +248,19 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
       </details>
 
       <div className="card">
+        <h3 className="text-sm font-semibold">پیشرفت ترجمه کتاب</h3>
+        <p className="mt-2 text-sm text-gray-600">
+          {translatedPages} از {totalPages} صفحه ترجمه شده است.
+        </p>
+      </div>
+
+      <div className="card">
         <BookChaptersTable
-          chapters={book.chapters}
+          chapters={book.chapters.map((chapter) => ({
+            ...chapter,
+            translatedPages: translatedMap.get(chapter.id) ?? 0,
+            totalPages: totalsMap.get(chapter.id) ?? 0,
+          }))}
           canDelete={canDeleteChapter}
           onDeleteChapter={removeChapter}
           onBulkDelete={bulkDeleteChapters}

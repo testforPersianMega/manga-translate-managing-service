@@ -8,6 +8,8 @@ type ChapterRow = {
   number: string;
   title: string | null;
   status: string;
+  translatedPages: number;
+  totalPages: number;
 };
 
 type ChapterAction = (formData: FormData) => void | Promise<void>;
@@ -83,6 +85,7 @@ export default function BookChaptersTable({
             <th>شماره</th>
             <th>عنوان</th>
             <th>وضعیت</th>
+            <th>پیشرفت ترجمه</th>
             <th></th>
           </tr>
         </thead>
@@ -104,6 +107,9 @@ export default function BookChaptersTable({
               <td>{chapter.number}</td>
               <td>{chapter.title ?? "-"}</td>
               <td>{chapter.status}</td>
+              <td>
+                {chapter.translatedPages}/{chapter.totalPages}
+              </td>
               <td className="space-x-2 space-x-reverse">
                 <Link href={`/chapters/${chapter.id}`} className="text-blue-600">
                   مشاهده
