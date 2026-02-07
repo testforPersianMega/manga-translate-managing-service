@@ -14,16 +14,22 @@ import Link from "next/link";
 
 interface BookDetailPageProps {
   params: { id: string };
+  searchParams?: { notice?: string };
 }
 
-export default async function BookDetailPage({ params }: BookDetailPageProps) {
+export default async function BookDetailPage({
+  params,
+  searchParams,
+}: BookDetailPageProps) {
   const user = await getSessionUser();
   if (!user) return null;
   await redirectIfNoPermission(user.id, PERMISSIONS.BOOK_VIEW, "/books");
 
   const book = await prisma.book.findUnique({
     where: { id: params.id },
-    include: { chapters: { orderBy: { createdAt: "desc" } } },
+    include: {
+      chapters: { orderBy: { createdAt: "desc" }, include: { assignedToUser: true } },
+    },
   });
 
   if (!book) {
@@ -37,6 +43,7 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
 
   const permissions = await getEffectivePermissions(user.id);
   const canDeleteChapter = permissions.has(PERMISSIONS.CHAPTER_DELETE);
+  const canCreateChapter = permissions.has(PERMISSIONS.CHAPTER_CREATE);
   const canUpdateBook = permissions.has(PERMISSIONS.BOOK_UPDATE);
   const canDeleteBook = permissions.has(PERMISSIONS.BOOK_DELETE);
 
@@ -204,6 +211,11 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
 
   return (
     <div className="space-y-6">
+      {searchParams?.notice && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          {searchParams.notice}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">{book.titleFa}</h2>
@@ -236,16 +248,18 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
         </form>
       )}
 
-      <details className="card">
-        <summary className="cursor-pointer text-sm font-semibold">ایجاد چپتر</summary>
-        <form action={createChapter} className="mt-4 space-y-3">
-          <input name="number" placeholder="شماره چپتر (مثلاً 12.5)" required />
-          <input name="title" placeholder="عنوان" />
-          <button className="rounded-md bg-gray-900 px-4 py-2 text-sm text-white">
-            ثبت چپتر
-          </button>
-        </form>
-      </details>
+      {canCreateChapter && (
+        <details className="card">
+          <summary className="cursor-pointer text-sm font-semibold">ایجاد چپتر</summary>
+          <form action={createChapter} className="mt-4 space-y-3">
+            <input name="number" placeholder="شماره چپتر (مثلاً 12.5)" required />
+            <input name="title" placeholder="عنوان" />
+            <button className="rounded-md bg-gray-900 px-4 py-2 text-sm text-white">
+              ثبت چپتر
+            </button>
+          </form>
+        </details>
+      )}
 
       <div className="card">
         <h3 className="text-sm font-semibold">پیشرفت ترجمه کتاب</h3>
@@ -260,8 +274,12 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
             ...chapter,
             translatedPages: translatedMap.get(chapter.id) ?? 0,
             totalPages: totalsMap.get(chapter.id) ?? 0,
+            assignedToUserId: chapter.assignedToUserId ?? null,
+            assignedToUserName:
+              chapter.assignedToUser?.name ?? chapter.assignedToUser?.email ?? null,
           }))}
           canDelete={canDeleteChapter}
+          currentUserId={user.id}
           onDeleteChapter={removeChapter}
           onBulkDelete={bulkDeleteChapters}
         />

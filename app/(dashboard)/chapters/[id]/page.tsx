@@ -36,7 +36,9 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
 
   const canView = await canViewChapter(user, chapter);
   if (!canView) {
-    redirect("/books");
+    redirect(
+      `/books/${chapter.bookId}?notice=${encodeURIComponent("این چپتر برای شما نیست.")}`,
+    );
   }
 
   const permissions = await getEffectivePermissions(user.id);
@@ -44,6 +46,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
   const canAssign = permissions.has(PERMISSIONS.CHAPTER_ASSIGN);
   const canChangeStatus = permissions.has(PERMISSIONS.CHAPTER_CHANGE_STATUS);
   const canEdit = await canEditChapter(user, chapter);
+  const canEditMetadata = canEdit && permissions.has(PERMISSIONS.CHAPTER_UPDATE);
   const canViewAssets = permissions.has(PERMISSIONS.CHAPTER_ASSETS_VIEW);
   const canViewAssetsPage = permissions.has(PERMISSIONS.CHAPTER_ASSETS_PAGE_VIEW);
   const canManageAssets =
@@ -123,6 +126,14 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
       where: { id: params.id },
     });
     if (!freshChapter || freshChapter.assignedToUserId !== sessionUser.id) return;
+    const allowed = await canAccessBook(sessionUser, freshChapter.bookId);
+    if (!allowed) {
+      redirect(
+        `/books/${freshChapter.bookId}?notice=${encodeURIComponent(
+          "دسترسی شما به این چپتر برداشته شده است.",
+        )}`,
+      );
+    }
 
     await prisma.chapter.update({
       where: { id: params.id },
@@ -155,7 +166,10 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
 
     await prisma.chapter.update({
       where: { id: params.id },
-      data: { status },
+      data:
+        status === "AVAILABLE"
+          ? { status, assignedToUserId: null, claimedAt: null }
+          : { status },
     });
     revalidatePath(`/chapters/${params.id}`);
   }
@@ -290,7 +304,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
         </div>
       )}
 
-      {canEdit && (
+      {canEditMetadata && (
         <div className="card">
           <p className="text-sm font-semibold">ویرایش متادیتا</p>
           <form action={updateMetadata} className="mt-3 space-y-2">
