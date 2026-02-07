@@ -31,6 +31,7 @@ export const useEditorState = (chapterId: string) => {
   const historyFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchInFlight = useRef<Set<string>>(new Set());
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
+  const cacheBustRef = useRef(Date.now());
 
   const currentPage = pages[currentPageIndex] ?? null;
 
@@ -134,7 +135,8 @@ export const useEditorState = (chapterId: string) => {
     let active = true;
     const loadJson = async () => {
       try {
-        const response = await fetch(page.asset.jsonUrl ?? "");
+        const cacheBustUrl = `${page.asset.jsonUrl}${page.asset.jsonUrl.includes("?") ? "&" : "?"}t=${cacheBustRef.current}`;
+        const response = await fetch(cacheBustUrl, { cache: "no-store" });
         if (!response.ok) {
           if (!active) return;
           setPages((prev) =>
@@ -171,7 +173,8 @@ export const useEditorState = (chapterId: string) => {
       if (!page.asset.jsonUrl || page.json) return;
       if (prefetchInFlight.current.has(page.asset.assetId)) return;
       prefetchInFlight.current.add(page.asset.assetId);
-      fetch(page.asset.jsonUrl)
+      const cacheBustUrl = `${page.asset.jsonUrl}${page.asset.jsonUrl.includes("?") ? "&" : "?"}t=${cacheBustRef.current}`;
+      fetch(cacheBustUrl, { cache: "no-store" })
         .then((response) => {
           if (!response.ok) return null;
           return response.json() as Promise<PageJson>;
