@@ -127,13 +127,6 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
     });
     if (!freshChapter || freshChapter.assignedToUserId !== sessionUser.id) return;
     const allowed = await canAccessBook(sessionUser, freshChapter.bookId);
-    if (!allowed) {
-      redirect(
-        `/books/${freshChapter.bookId}?notice=${encodeURIComponent(
-          "دسترسی شما به این چپتر برداشته شده است.",
-        )}`,
-      );
-    }
 
     await prisma.chapter.update({
       where: { id: params.id },
@@ -144,6 +137,14 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
       },
     });
     revalidatePath(`/chapters/${params.id}`);
+
+    if (!allowed) {
+      redirect(
+        `/books/${freshChapter.bookId}?notice=${encodeURIComponent(
+          "دسترسی شما به این چپتر برداشته شده است.",
+        )}`,
+      );
+    }
   }
 
   async function updateStatus(formData: FormData) {
