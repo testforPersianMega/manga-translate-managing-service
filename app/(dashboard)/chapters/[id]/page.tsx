@@ -46,6 +46,36 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
   const canEdit = await canEditChapter(user, chapter);
   const canViewAssets = permissions.has(PERMISSIONS.CHAPTER_ASSETS_VIEW);
 
+  const [totalPages, translatedPages, historyEntries] = canViewAssets
+    ? await Promise.all([
+        prisma.chapterAsset.count({ where: { chapterId: chapter.id } }),
+        prisma.chapterAsset.count({
+          where: { chapterId: chapter.id, isTranslated: true },
+        }),
+        prisma.chapterPageHistory.findMany({
+          where: { chapterId: chapter.id },
+          select: { metadata: true },
+        }),
+      ])
+    : [0, 0, []];
+
+  const editorsMap = new Map<
+    string,
+    { id?: string; name?: string | null; email?: string | null }
+  >();
+  historyEntries.forEach((entry) => {
+    const metadata = entry.metadata;
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return;
+    const editor = (metadata as { editor?: { id?: string; name?: string; email?: string } })
+      .editor;
+    if (!editor) return;
+    const key = editor.id ?? editor.email ?? editor.name ?? "unknown";
+    if (!editorsMap.has(key)) {
+      editorsMap.set(key, editor);
+    }
+  });
+  const editors = Array.from(editorsMap.values());
+
   const users = canAssign
     ? await prisma.user.findMany({
         where: { isActive: true },
@@ -199,6 +229,20 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
           </div>
         </div>
 
+        {canViewAssets && (
+          <div className="card space-y-2">
+            <p className="text-sm font-semibold">پیشرفت ترجمه</p>
+            <p className="text-sm">
+              {translatedPages} از {totalPages} صفحه ترجمه شده است.
+            </p>
+            <p className="text-xs text-gray-500">
+              {totalPages === 0
+                ? "هنوز صفحه‌ای بارگذاری نشده است."
+                : `${Math.round((translatedPages / totalPages) * 100)}٪ تکمیل`}
+            </p>
+          </div>
+        )}
+
         {canAssign && (
           <div className="card">
             <p className="text-sm font-semibold">تخصیص چپتر</p>
@@ -271,6 +315,26 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
           </div>
         )}
       </div>
+
+      {canViewAssets && (
+        <div className="card space-y-3">
+          <div>
+            <p className="text-sm font-semibold">ویرایشگران چپتر</p>
+            <p className="text-xs text-gray-500">کاربرانی که روی صفحات این چپتر کار کرده‌اند.</p>
+          </div>
+          {editors.length === 0 ? (
+            <p className="text-sm text-gray-500">ویرایشگری ثبت نشده است.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {editors.map((editor) => (
+                <li key={editor.id ?? editor.email ?? editor.name ?? "unknown"}>
+                  {editor.name ?? editor.email ?? "کاربر ناشناس"}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -107,18 +107,29 @@ export async function POST(request: Request, { params }: RouteParams) {
       : body?.entry
         ? [body.entry]
         : [];
+    const editorMetadata = {
+      editor: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+    };
 
     const data: Prisma.ChapterPageHistoryCreateManyInput[] = entries
       .filter((entry) => entry?.label && isJsonValue(entry?.snapshot))
       .map((entry) => {
         const metadataValue = entry.meta ?? entry.metadata;
+        const mergedMetadata =
+          metadataValue && typeof metadataValue === "object" && !Array.isArray(metadataValue)
+            ? { ...metadataValue, ...editorMetadata }
+            : { ...editorMetadata, meta: metadataValue ?? null };
 
         return {
           chapterId: chapter.id,
           assetId: asset.id,
           label: String(entry.label),
           snapshot: entry.snapshot as Prisma.InputJsonValue,
-          metadata: isJsonValue(metadataValue) ? metadataValue : Prisma.JsonNull,
+          metadata: isJsonValue(mergedMetadata) ? mergedMetadata : Prisma.JsonNull,
         };
       });
 

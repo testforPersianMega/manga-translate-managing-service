@@ -19,7 +19,7 @@ import {
   getOrderedBubbleIndices,
   reorderBubbleToPosition,
 } from "./utils";
-import type { BubbleItem, PageJson } from "./types";
+import type { BubbleItem, PageJson, PageState } from "./types";
 
 const DEFAULT_MARGIN = 80;
 
@@ -286,12 +286,48 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     }
   }, [canEdit, savePageJson, setStatusMessage]);
 
+  const formatBubbleLabel = useCallback((item: BubbleItem, index: number) => {
+    const order = Number(item.order);
+    if (Number.isFinite(order)) {
+      return `#${order}`;
+    }
+    if (item.id !== undefined && item.id !== null) {
+      return `ID ${item.id}`;
+    }
+    return `#${index + 1}`;
+  }, []);
+
+  const getIncompleteBubbles = useCallback(
+    (page: PageState | null) => {
+      if (!page?.json) {
+        return { labels: [], missingData: true };
+      }
+      const ordered = getOrderedBubbleIndices(page.json);
+      const indices = ordered.length
+        ? ordered
+        : page.json.items.map((_, index) => index);
+      const labels = indices
+        .filter((index) => !(page.json?.items?.[index]?.text ?? "").trim())
+        .map((index) => formatBubbleLabel(page.json.items[index], index));
+      return { labels, missingData: false };
+    },
+    [formatBubbleLabel],
+  );
+
   const onMarkTranslated = useCallback(async () => {
     const page = pagesRef.current[currentPageIndex];
     if (!page?.json) return;
     const nextTranslated = !page.asset.isTranslated;
     let saveResult: { ok: boolean; pageLabel?: string } = { ok: true };
     if (nextTranslated) {
+      const incomplete = getIncompleteBubbles(page);
+      if (incomplete.missingData || incomplete.labels.length) {
+        const labelMessage = incomplete.labels.length
+          ? `Missing translated text in bubbles: ${incomplete.labels.join(", ")}.`
+          : "Missing translation data for this page.";
+        setStatusMessage(labelMessage);
+        return;
+      }
       saveResult = await savePageJson(currentPageIndex, { silent: true });
       if (!saveResult.ok) {
         setStatusMessage("Failed to save before marking translation done.");
@@ -335,8 +371,85 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   }, [
     chapterId,
     currentPageIndex,
+    getIncompleteBubbles,
     savePageJson,
     selectPage,
+    setStatusMessage,
+    updatePageState,
+  ]);
+
+  const onMarkAllTranslated = useCallback(async () => {
+    if (!canEdit) return;
+    const pagesList = pagesRef.current;
+    if (!pagesList.length) {
+      setStatusMessage("No pages available to update.");
+      return;
+    }
+    const incompletePages = pagesList
+      .map((page, index) => {
+        const incomplete = getIncompleteBubbles(page);
+        if (incomplete.missingData) {
+          return `Page ${page.asset.pageIndex} (missing translation data)`;
+        }
+        if (incomplete.labels.length) {
+          return `Page ${page.asset.pageIndex} (bubbles ${incomplete.labels.join(", ")})`;
+        }
+        return null;
+      })
+      .filter((value): value is string => Boolean(value));
+    if (incompletePages.length) {
+      setStatusMessage(
+        `Incomplete translations: ${incompletePages.join("; ")}.`,
+      );
+      return;
+    }
+    setStatusMessage("Saving all pages before marking translation done...");
+    const saveFailures: string[] = [];
+    for (const [index, page] of pagesList.entries()) {
+      if (!page.json) continue;
+      const result = await savePageJson(index, { silent: true });
+      if (!result.ok) {
+        saveFailures.push(`Page ${page.asset.pageIndex}`);
+      }
+    }
+    if (saveFailures.length) {
+      setStatusMessage(`Failed to save: ${saveFailures.join(", ")}.`);
+      return;
+    }
+    const failures: string[] = [];
+    for (const [index, page] of pagesList.entries()) {
+      if (page.asset.isTranslated) continue;
+      try {
+        const response = await fetch(
+          `/api/chapters/${chapterId}/assets/${page.asset.assetId}/translation`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isTranslated: true }),
+          },
+        );
+        if (!response.ok) {
+          failures.push(`Page ${page.asset.pageIndex}`);
+          continue;
+        }
+        updatePageState(index, (prev) => ({
+          ...prev,
+          asset: { ...prev.asset, isTranslated: true },
+        }));
+      } catch {
+        failures.push(`Page ${page.asset.pageIndex}`);
+      }
+    }
+    if (failures.length) {
+      setStatusMessage(`Failed to mark done: ${failures.join(", ")}.`);
+    } else {
+      setStatusMessage("All pages saved and marked as translated.");
+    }
+  }, [
+    canEdit,
+    chapterId,
+    getIncompleteBubbles,
+    savePageJson,
     setStatusMessage,
     updatePageState,
   ]);
@@ -623,17 +736,30 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         <div className={styles.column}>
           <div className={styles.panel}>
             <h3 className={styles.panelTitle}>Save & Stats</h3>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={onSaveAll}
-              disabled={!canEdit || !canSaveAll}
-              title="Save all pages"
-              aria-label="Save all pages"
-            >
-              <i className="fa-solid fa-layer-group" aria-hidden="true" />
-              <span className={styles.buttonLabel}>Save All</span>
-            </button>
+            <div className={styles.buttonRow}>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={onSaveAll}
+                disabled={!canEdit || !canSaveAll}
+                title="Save all pages"
+                aria-label="Save all pages"
+              >
+                <i className="fa-solid fa-layer-group" aria-hidden="true" />
+                <span className={styles.buttonLabel}>Save All</span>
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={onMarkAllTranslated}
+                disabled={!canEdit || !canSaveAll}
+                title="Mark all pages as translated"
+                aria-label="Mark all pages as translated"
+              >
+                <i className="fa-solid fa-check-double" aria-hidden="true" />
+                <span className={styles.buttonLabel}>Translate All Done</span>
+              </button>
+            </div>
             <div className={styles.statsList}>
               <div className={styles.statsItem}>
                 <span className={styles.statsLabel}>Total pages</span>
