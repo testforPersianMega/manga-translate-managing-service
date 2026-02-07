@@ -177,12 +177,18 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   const savePageJson = useCallback(
     async (
       pageIndex: number,
-      options?: { silent?: boolean; statusPrefix?: string },
+      options?: {
+        silent?: boolean;
+        statusPrefix?: string;
+        allowWhileSaving?: boolean;
+      },
     ) => {
       const page = pagesRef.current[pageIndex];
       if (!page?.json || !page.asset) return { ok: false };
       if (!canEdit) return { ok: false };
+      if (page.isSaving && !options?.allowWhileSaving) return { ok: false };
       const dirtyRevision = page.dirtyRevision;
+      const jsonSnapshot = JSON.parse(JSON.stringify(page.json)) as PageJson;
       const pageLabel = `Page ${page.asset.pageIndex}`;
       if (!options?.silent) {
         setStatusMessage(`${options?.statusPrefix ?? "Saving"} ${pageLabel}...`);
@@ -194,7 +200,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ json: page.json }),
+            body: JSON.stringify({ json: jsonSnapshot }),
           },
         );
         if (!response.ok) {
@@ -212,6 +218,14 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
           isSaving: false,
           isDirty: prev.dirtyRevision === dirtyRevision ? false : prev.isDirty,
         }));
+        const latestPage = pagesRef.current[pageIndex];
+        if (latestPage?.dirtyRevision !== dirtyRevision) {
+          return await savePageJson(pageIndex, {
+            allowWhileSaving: true,
+            silent: options?.silent,
+            statusPrefix: options?.silent ? undefined : "Saving latest",
+          });
+        }
         if (!options?.silent) {
           setStatusMessage(`${pageLabel} saved.`);
         }
