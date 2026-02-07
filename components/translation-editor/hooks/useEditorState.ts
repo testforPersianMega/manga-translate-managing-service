@@ -63,6 +63,11 @@ export const useEditorState = (chapterId: string) => {
     }
   }, [chapterId]);
 
+  const withCacheBust = useCallback((url: string) => {
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}t=${Date.now()}`;
+  }, []);
+
   useEffect(() => {
     void loadAssets();
   }, [loadAssets]);
@@ -134,7 +139,9 @@ export const useEditorState = (chapterId: string) => {
     let active = true;
     const loadJson = async () => {
       try {
-        const response = await fetch(page.asset.jsonUrl ?? "");
+        const response = await fetch(withCacheBust(page.asset.jsonUrl), {
+          cache: "no-store",
+        });
         if (!response.ok) {
           if (!active) return;
           setPages((prev) =>
@@ -164,14 +171,14 @@ export const useEditorState = (chapterId: string) => {
     return () => {
       active = false;
     };
-  }, [currentPageIndex, hydratePageJson, pages]);
+  }, [currentPageIndex, hydratePageJson, pages, withCacheBust]);
 
   useEffect(() => {
     pages.forEach((page, index) => {
       if (!page.asset.jsonUrl || page.json) return;
       if (prefetchInFlight.current.has(page.asset.assetId)) return;
       prefetchInFlight.current.add(page.asset.assetId);
-      fetch(page.asset.jsonUrl)
+      fetch(withCacheBust(page.asset.jsonUrl), { cache: "no-store" })
         .then((response) => {
           if (!response.ok) return null;
           return response.json() as Promise<PageJson>;
@@ -184,7 +191,7 @@ export const useEditorState = (chapterId: string) => {
           prefetchInFlight.current.delete(page.asset.assetId);
         });
     });
-  }, [hydratePageJson, pages]);
+  }, [hydratePageJson, pages, withCacheBust]);
 
   useEffect(() => {
     pages.forEach((page) => {
