@@ -19,7 +19,7 @@ import {
   getOrderedBubbleIndices,
   reorderBubbleToPosition,
 } from "./utils";
-import type { PageJson } from "./types";
+import type { BubbleItem, PageJson } from "./types";
 
 const DEFAULT_MARGIN = 80;
 
@@ -509,7 +509,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     (snapshot: PageJson, index: number) => {
       const beforeItem = snapshot.items?.[index];
       const afterItem = currentPage?.json?.items?.[index];
-      const getSizeLabel = (item: typeof beforeItem) => {
+      const getSizeLabel = (item: BubbleItem | undefined) => {
         const bbox = item?.bbox_bubble ?? item?.bbox_text;
         if (!bbox) return null;
         const xMin = bbox.x_min ?? bbox.xMin ?? 0;
