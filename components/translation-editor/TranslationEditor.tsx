@@ -307,7 +307,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
       }));
       if (nextTranslated) {
         setStatusMessage(`${saveResult.pageLabel ?? "Page"} saved and marked done.`);
-        selectPage(Math.min(pages.length - 1, currentPageIndex + 1));
+        selectPage(Math.min(pagesRef.current.length - 1, currentPageIndex + 1));
       } else {
         setStatusMessage("Translation marked as not done.");
       }
