@@ -48,6 +48,7 @@ export const useEditorState = (chapterId: string) => {
         json: null,
         isJsonLoading: Boolean(asset.jsonUrl),
         isDirty: false,
+        dirtyRevision: 0,
         isSaving: false,
         hasHistoryLoaded: false,
         selectedBubbleIndex: -1,
@@ -292,6 +293,7 @@ export const useEditorState = (chapterId: string) => {
           json: updated,
           history,
           isDirty: true,
+          dirtyRevision: page.dirtyRevision + 1,
           selectedBubbleIndex: nextSelected,
         };
         return next;
@@ -328,6 +330,7 @@ export const useEditorState = (chapterId: string) => {
           ...page,
           history,
           isDirty: true,
+          dirtyRevision: page.dirtyRevision + 1,
         };
         return next;
       });
@@ -347,6 +350,7 @@ export const useEditorState = (chapterId: string) => {
         json: snapshot,
         history: nextState,
         isDirty: true,
+        dirtyRevision: page.dirtyRevision + 1,
         selectedBubbleIndex: clampIndex(
           page.selectedBubbleIndex,
           snapshot.items?.length ?? 0,
@@ -368,6 +372,7 @@ export const useEditorState = (chapterId: string) => {
         json: snapshot,
         history: nextState,
         isDirty: true,
+        dirtyRevision: page.dirtyRevision + 1,
         selectedBubbleIndex: clampIndex(
           page.selectedBubbleIndex,
           snapshot.items?.length ?? 0,
@@ -414,6 +419,7 @@ export const useEditorState = (chapterId: string) => {
             redoStack: [],
           },
           isDirty: true,
+          dirtyRevision: page.dirtyRevision + 1,
           selectedBubbleIndex: clampIndex(
             page.selectedBubbleIndex,
             entry.snapshot.items?.length ?? 0,

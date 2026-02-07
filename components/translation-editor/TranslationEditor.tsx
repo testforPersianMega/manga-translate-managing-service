@@ -177,6 +177,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
       const page = pages[pageIndex];
       if (!page?.json || !page.asset) return { ok: false };
       if (!canEdit) return { ok: false };
+      const dirtyRevision = page.dirtyRevision;
       const pageLabel = `Page ${page.asset.pageIndex}`;
       if (!options?.silent) {
         setStatusMessage(`${options?.statusPrefix ?? "Saving"} ${pageLabel}...`);
@@ -204,7 +205,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
           ...prev,
           asset: { ...prev.asset, jsonUrl },
           isSaving: false,
-          isDirty: false,
+          isDirty: prev.dirtyRevision === dirtyRevision ? false : prev.isDirty,
         }));
         if (!options?.silent) {
           setStatusMessage(`${pageLabel} saved.`);

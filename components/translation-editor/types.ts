@@ -62,6 +62,7 @@ export type PageState = {
   json: PageJson | null;
   isJsonLoading: boolean;
   isDirty: boolean;
+  dirtyRevision: number;
   isSaving: boolean;
   hasHistoryLoaded?: boolean;
   selectedBubbleIndex: number;
