@@ -115,11 +115,8 @@ export const useEditorState = (chapterId: string) => {
   }, [chapterId]);
 
   const queueHistoryEntry = useCallback(
-    (assetId: string, entry: HistoryEntry, snapshotOverride?: PageJson) => {
-      const queuedEntry = snapshotOverride
-        ? { ...entry, snapshot: cloneJson(snapshotOverride) }
-        : entry;
-      historyQueueRef.current.push({ assetId, entry: queuedEntry });
+    (assetId: string, entry: HistoryEntry) => {
+      historyQueueRef.current.push({ assetId, entry });
       if (historyFlushTimer.current) {
         clearTimeout(historyFlushTimer.current);
       }
@@ -285,7 +282,7 @@ export const useEditorState = (chapterId: string) => {
           : page.history;
         const entry = label ? history.undoStack.at(-1) : null;
         if (entry) {
-          queueHistoryEntry(page.asset.assetId, entry, updated);
+          queueHistoryEntry(page.asset.assetId, entry);
         }
         const nextSelected = clampIndex(
           page.selectedBubbleIndex,
@@ -327,7 +324,7 @@ export const useEditorState = (chapterId: string) => {
         const history = pushHistory(page.history, snapshot, label, meta);
         const entry = history.undoStack.at(-1);
         if (entry) {
-          queueHistoryEntry(page.asset.assetId, entry, page.json);
+          queueHistoryEntry(page.asset.assetId, entry);
         }
         next[currentPageIndex] = {
           ...page,
