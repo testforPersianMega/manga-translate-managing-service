@@ -1,4 +1,4 @@
-import type { HistoryEntry, HistoryState, PageJson } from "../types";
+import type { HistoryEntry, HistoryMeta, HistoryState, PageJson } from "../types";
 
 export const createHistoryState = (): HistoryState => ({
   undoStack: [],
@@ -13,11 +13,17 @@ const formatLabel = (label: string) =>
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
-export const pushHistory = (state: HistoryState, snapshot: PageJson, label: string) => {
+export const pushHistory = (
+  state: HistoryState,
+  snapshot: PageJson,
+  label: string,
+  meta?: HistoryMeta,
+) => {
   const entry: HistoryEntry = {
     snapshot: cloneJson(snapshot),
     label: formatLabel(label || "Edit"),
     timestamp: Date.now(),
+    meta,
   };
   return {
     undoStack: [...state.undoStack, entry],
@@ -39,6 +45,7 @@ export const applyUndo = (
     snapshot: cloneJson(currentSnapshot),
     label: entry.label,
     timestamp: entry.timestamp,
+    meta: entry.meta,
   };
   return {
     nextState: {
@@ -63,6 +70,7 @@ export const applyRedo = (
     snapshot: cloneJson(currentSnapshot),
     label: entry.label,
     timestamp: entry.timestamp,
+    meta: entry.meta,
   };
   return {
     nextState: {

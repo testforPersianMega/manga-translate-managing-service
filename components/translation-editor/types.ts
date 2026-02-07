@@ -4,6 +4,7 @@ export type ChapterAsset = {
   imageUrl: string;
   jsonUrl: string | null;
   fileName?: string;
+  isTranslated?: boolean;
 };
 
 export type BubbleBBox = {
@@ -35,9 +36,20 @@ export type PageJson = {
 };
 
 export type HistoryEntry = {
+  id?: string;
   snapshot: PageJson;
   label: string;
   timestamp: number;
+  meta?: HistoryMeta;
+};
+
+export type HistoryMeta = {
+  action?: string;
+  bubbleId?: number | string;
+  field?: string;
+  from?: unknown;
+  to?: unknown;
+  note?: string;
 };
 
 export type HistoryState = {
@@ -49,6 +61,9 @@ export type PageState = {
   asset: ChapterAsset;
   json: PageJson | null;
   isJsonLoading: boolean;
+  isDirty: boolean;
+  isSaving: boolean;
+  hasHistoryLoaded?: boolean;
   selectedBubbleIndex: number;
   history: HistoryState;
   manualOrderChanged?: boolean;

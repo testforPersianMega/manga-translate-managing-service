@@ -39,11 +39,12 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     selectPage,
     setSelectedBubbleIndex,
     updateCurrentJson,
-    updateCurrentAsset,
     pushHistorySnapshot,
     undo,
     redo,
     clearHistoryState,
+    applyHistoryEntry,
+    updatePageState,
     selectNextBubble,
     selectPrevBubble,
     setStatusMessage,
@@ -168,31 +169,62 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     ensureBubbleInView();
   }, [ensureBubbleInView]);
 
-  const onSave = useCallback(async () => {
-    if (!currentPage?.json || !currentPage.asset) return;
-    if (!canEdit) return;
-    setStatusMessage("Saving JSON...");
-    try {
-      const response = await fetch(
-        `/api/chapters/${chapterId}/assets/${currentPage.asset.assetId}/json`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ json: currentPage.json }),
-        },
-      );
-      if (!response.ok) {
-        setStatusMessage("Failed to save JSON.");
-        return;
+  const savePageJson = useCallback(
+    async (
+      pageIndex: number,
+      options?: { silent?: boolean; statusPrefix?: string },
+    ) => {
+      const page = pages[pageIndex];
+      if (!page?.json || !page.asset) return { ok: false };
+      if (!canEdit) return { ok: false };
+      const pageLabel = `Page ${page.asset.pageIndex}`;
+      if (!options?.silent) {
+        setStatusMessage(`${options?.statusPrefix ?? "Saving"} ${pageLabel}...`);
       }
-      const data = (await response.json()) as { jsonUrl?: string };
-      const jsonUrl = data.jsonUrl ?? null;
-      updateCurrentAsset((asset) => ({ ...asset, jsonUrl }));
-      setStatusMessage("JSON saved successfully.");
-    } catch {
-      setStatusMessage("Failed to save JSON.");
-    }
-  }, [canEdit, chapterId, currentPage, setStatusMessage]);
+      updatePageState(pageIndex, (prev) => ({ ...prev, isSaving: true }));
+      try {
+        const response = await fetch(
+          `/api/chapters/${chapterId}/assets/${page.asset.assetId}/json`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ json: page.json }),
+          },
+        );
+        if (!response.ok) {
+          if (!options?.silent) {
+            setStatusMessage(`Failed to save ${pageLabel}.`);
+          }
+          updatePageState(pageIndex, (prev) => ({ ...prev, isSaving: false }));
+          return { ok: false };
+        }
+        const data = (await response.json()) as { jsonUrl?: string };
+        const jsonUrl = data.jsonUrl ?? null;
+        updatePageState(pageIndex, (prev) => ({
+          ...prev,
+          asset: { ...prev.asset, jsonUrl },
+          isSaving: false,
+          isDirty: false,
+        }));
+        if (!options?.silent) {
+          setStatusMessage(`${pageLabel} saved.`);
+        }
+        return { ok: true, pageLabel };
+      } catch {
+        if (!options?.silent) {
+          setStatusMessage(`Failed to save ${pageLabel}.`);
+        }
+        updatePageState(pageIndex, (prev) => ({ ...prev, isSaving: false }));
+        return { ok: false };
+      }
+    },
+    [canEdit, chapterId, pages, setStatusMessage, updatePageState],
+  );
+
+  const onSave = useCallback(async () => {
+    if (!currentPage) return;
+    await savePageJson(currentPageIndex);
+  }, [currentPage, currentPageIndex, savePageJson]);
 
   const onDownload = useCallback(() => {
     if (!currentPage?.json) return;
@@ -210,6 +242,70 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     URL.revokeObjectURL(url);
   }, [chapterId, currentPage]);
 
+  const onSaveAll = useCallback(async () => {
+    if (!canEdit) return;
+    const targets = pages
+      .map((page, index) => ({ page, index }))
+      .filter(({ page }) => page.json);
+    if (!targets.length) {
+      setStatusMessage("No pages available to save.");
+      return;
+    }
+    setStatusMessage("Saving all pages...");
+    const saved: string[] = [];
+    for (const target of targets) {
+      const result = await savePageJson(target.index, { silent: true });
+      if (result.ok && result.pageLabel) {
+        saved.push(result.pageLabel);
+      }
+    }
+    if (saved.length) {
+      setStatusMessage(`Saved: ${saved.join(", ")}.`);
+    } else {
+      setStatusMessage("No pages were saved.");
+    }
+  }, [canEdit, pages, savePageJson, setStatusMessage]);
+
+  const onMarkTranslated = useCallback(async () => {
+    const page = pages[currentPageIndex];
+    if (!page?.json) return;
+    const saveResult = await savePageJson(currentPageIndex, { silent: true });
+    if (!saveResult.ok) {
+      setStatusMessage("Failed to save before marking translation done.");
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/chapters/${chapterId}/assets/${page.asset.assetId}/translation`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isTranslated: true }),
+        },
+      );
+      if (!response.ok) {
+        setStatusMessage("Failed to mark translation as done.");
+        return;
+      }
+      updatePageState(currentPageIndex, (prev) => ({
+        ...prev,
+        asset: { ...prev.asset, isTranslated: true },
+      }));
+      setStatusMessage(`${saveResult.pageLabel ?? "Page"} saved and marked done.`);
+      selectPage(Math.min(pages.length - 1, currentPageIndex + 1));
+    } catch {
+      setStatusMessage("Failed to mark translation as done.");
+    }
+  }, [
+    chapterId,
+    currentPageIndex,
+    pages,
+    savePageJson,
+    selectPage,
+    setStatusMessage,
+    updatePageState,
+  ]);
+
   const handleTextChange = useCallback(
     (value: string) => {
       updateCurrentJson((json) => {
@@ -221,11 +317,34 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     [selectedIndex, updateCurrentJson],
   );
 
+  useEffect(() => {
+    if (!canEdit) return undefined;
+    const interval = window.setInterval(() => {
+      const page = pages[currentPageIndex];
+      if (!page?.json || !page.isDirty || page.isSaving) return;
+      void savePageJson(currentPageIndex, { silent: true }).then((result) => {
+        if (result.ok && result.pageLabel) {
+          setStatusMessage(`Auto-saved ${result.pageLabel}.`);
+        }
+      });
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [canEdit, currentPageIndex, pages, savePageJson, setStatusMessage]);
+
   const handleTextCommit = useCallback(
     (snapshot: PageJson) => {
-      pushHistorySnapshot(snapshot, "text edit");
+      if (selectedIndex < 0) return;
+      const beforeText = snapshot.items?.[selectedIndex]?.text ?? "";
+      const afterText = currentPage?.json?.items?.[selectedIndex]?.text ?? "";
+      pushHistorySnapshot(snapshot, "text edit", {
+        action: "text_edit",
+        bubbleId: snapshot.items?.[selectedIndex]?.id,
+        field: "text",
+        from: beforeText,
+        to: afterText,
+      });
     },
-    [pushHistorySnapshot],
+    [currentPage?.json, pushHistorySnapshot, selectedIndex],
   );
 
   const handleOrderChange = useCallback(
@@ -238,7 +357,13 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         const clampedOrder = clampValue(value, 1, ordered.length);
         reorderBubbleToPosition(json, selectedIndex, clampedOrder - 1);
         return json;
-      }, "manual order change");
+      }, "manual order change", {
+        action: "order_change",
+        bubbleId: currentPage.json.items?.[selectedIndex]?.id,
+        field: "order",
+        from: currentPage.json.items?.[selectedIndex]?.order ?? null,
+        to: value,
+      });
       setManualOrderNotice(true);
     },
     [currentPage?.json, selectedIndex, updateCurrentJson],
@@ -250,16 +375,22 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         if (selectedIndex < 0) return json;
         json.items[selectedIndex] = { ...json.items[selectedIndex], bubble_type: value };
         return json;
-      }, "bubble type change");
+      }, "bubble type change", {
+        action: "type_change",
+        bubbleId: currentPage?.json?.items?.[selectedIndex]?.id,
+        field: "bubble_type",
+        from: currentPage?.json?.items?.[selectedIndex]?.bubble_type ?? null,
+        to: value,
+      });
     },
-    [selectedIndex, updateCurrentJson],
+    [currentPage?.json, selectedIndex, updateCurrentJson],
   );
 
   const handleAutoOrder = useCallback(() => {
     updateCurrentJson((json) => {
       autoOrderBubbles(json);
       return json;
-    }, "auto order");
+    }, "auto order", { action: "auto_order" });
     setManualOrderNotice(false);
   }, [updateCurrentJson]);
 
@@ -271,15 +402,21 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         if (targetPosition === -1 || fromIndex === targetIndex) return json;
         reorderBubbleToPosition(json, fromIndex, targetPosition);
         return json;
-      }, "drag reorder");
+      }, "drag reorder", {
+        action: "drag_reorder",
+        bubbleId: currentPage?.json?.items?.[fromIndex]?.id,
+        from: fromIndex,
+        to: targetIndex,
+      });
       setManualOrderNotice(true);
     },
-    [updateCurrentJson],
+    [currentPage?.json, updateCurrentJson],
   );
 
   const handleAddBubble = useCallback(
     (bbox: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
       if (!currentPage?.json) return;
+      let nextId: number | string | undefined;
       updateCurrentJson((json) => {
         const orders = json.items
           .map((item) => Number(item.order))
@@ -288,7 +425,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         const lastId = json.items.at(-1)?.id;
         const lastNumber =
           typeof lastId === "number" ? lastId : Number.parseInt(String(lastId ?? ""), 10);
-        const nextId = Number.isFinite(lastNumber) ? lastNumber + 1 : json.items.length + 1;
+        nextId = Number.isFinite(lastNumber) ? lastNumber + 1 : json.items.length + 1;
         json.items.push({
           id: nextId,
           order: nextOrder,
@@ -307,7 +444,10 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
           },
         });
         return json;
-      }, "add bubble");
+      }, "add bubble", {
+        action: "add_bubble",
+        bubbleId: nextId,
+      });
       setSelectedBubbleIndex(currentPage.json.items.length);
       setDrawMode(false);
     },
@@ -316,10 +456,11 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
 
   const handleRemoveBubble = useCallback(() => {
     if (!currentPage?.json || selectedIndex < 0) return;
+    const bubbleId = currentPage.json.items[selectedIndex]?.id;
     updateCurrentJson((json) => {
       json.items.splice(selectedIndex, 1);
       return json;
-    }, "remove bubble");
+    }, "remove bubble", { action: "remove_bubble", bubbleId });
   }, [currentPage?.json, selectedIndex, updateCurrentJson]);
 
   const handleToggleDrawMode = useCallback(() => {
@@ -364,14 +505,35 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   );
 
   const handleCommitResize = useCallback(
-    (snapshot: PageJson) => {
-      pushHistorySnapshot(snapshot, "resize bubble");
+    (snapshot: PageJson, index: number) => {
+      const beforeItem = snapshot.items?.[index];
+      const afterItem = currentPage?.json?.items?.[index];
+      const getSizeLabel = (item: typeof beforeItem) => {
+        const bbox = item?.bbox_bubble ?? item?.bbox_text;
+        if (!bbox) return null;
+        const xMin = bbox.x_min ?? bbox.xMin ?? 0;
+        const yMin = bbox.y_min ?? bbox.yMin ?? 0;
+        const xMax = bbox.x_max ?? bbox.xMax ?? 0;
+        const yMax = bbox.y_max ?? bbox.yMax ?? 0;
+        const width = Math.max(0, Math.round(xMax - xMin));
+        const height = Math.max(0, Math.round(yMax - yMin));
+        return `${width}x${height}`;
+      };
+      pushHistorySnapshot(snapshot, "resize bubble", {
+        action: "resize_bubble",
+        bubbleId: beforeItem?.id,
+        field: "bbox",
+        from: getSizeLabel(beforeItem),
+        to: getSizeLabel(afterItem),
+      });
     },
-    [pushHistorySnapshot],
+    [currentPage?.json, pushHistorySnapshot],
   );
 
   const hasJson = Boolean(currentPage?.json);
   const canSave = hasJson && canEdit;
+  const canSaveAll = canEdit && pages.some((page) => page.json && page.isDirty);
+  const canMarkTranslated = canSave && !currentPage?.isSaving;
 
   const assets = useMemo(() => pages.map((page) => page.asset), [pages]);
   const handlePrevPage = useCallback(() => {
@@ -447,7 +609,12 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
                 canRemove={selectedIndex >= 0}
                 drawMode={drawMode}
                 zoom={zoom}
+                canSaveAll={canSaveAll}
+                canMarkTranslated={canMarkTranslated}
+                isTranslated={Boolean(currentPage?.asset.isTranslated)}
                 onSave={onSave}
+                onSaveAll={onSaveAll}
+                onMarkTranslated={onMarkTranslated}
                 onDownload={onDownload}
                 onUndo={undo}
                 onRedo={redo}
@@ -507,6 +674,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
             onUndo={undo}
             onRedo={redo}
             onClear={clearHistoryState}
+            onApplyHistory={applyHistoryEntry}
           />
         </div>
       </div>

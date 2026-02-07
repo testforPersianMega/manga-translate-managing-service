@@ -56,7 +56,12 @@ export function PageSwitcher({
               }
               onClick={() => onSelect(index)}
             >
-              Page {page.pageIndex}
+              <span>Page {page.pageIndex}</span>
+              {page.isTranslated && (
+                <span className={styles.pageStatusIcon} title="Translation done">
+                  <i className="fa-solid fa-check" aria-hidden="true" />
+                </span>
+              )}
             </button>
           </li>
         ))}

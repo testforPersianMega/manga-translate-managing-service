@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ChapterAsset, PageJson, PageState } from "../types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ChapterAsset, HistoryEntry, HistoryMeta, PageJson, PageState } from "../types";
 import {
   applyRedo,
   applyUndo,
@@ -25,6 +25,12 @@ export const useEditorState = (chapterId: string) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const historyQueueRef = useRef<
+    { assetId: string; entry: HistoryEntry }[]
+  >([]);
+  const historyFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prefetchInFlight = useRef<Set<string>>(new Set());
+  const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
 
   const currentPage = pages[currentPageIndex] ?? null;
 
@@ -41,6 +47,9 @@ export const useEditorState = (chapterId: string) => {
         asset,
         json: null,
         isJsonLoading: Boolean(asset.jsonUrl),
+        isDirty: false,
+        isSaving: false,
+        hasHistoryLoaded: false,
         selectedBubbleIndex: -1,
         history: createHistoryState(),
         manualOrderChanged: false,
@@ -56,6 +65,67 @@ export const useEditorState = (chapterId: string) => {
   useEffect(() => {
     void loadAssets();
   }, [loadAssets]);
+
+  const hydratePageJson = useCallback(
+    (pageIndex: number, jsonData: PageJson) => {
+      ensureBubbleOrders(jsonData);
+      applyInitialOverlapOrdering(jsonData);
+      setPages((prev) =>
+        prev.map((item, index) => {
+          if (index !== pageIndex) return item;
+          if (item.isDirty) {
+            return { ...item, isJsonLoading: false };
+          }
+          const ordered = jsonData.items?.length ? getOrderedBubbleIndices(jsonData) : [];
+          const nextSelected =
+            item.selectedBubbleIndex < 0
+              ? (ordered[0] ?? -1)
+              : clampIndex(item.selectedBubbleIndex, jsonData.items?.length ?? 0);
+          return {
+            ...item,
+            json: jsonData,
+            isJsonLoading: false,
+            selectedBubbleIndex: nextSelected,
+            overlapOrdered: true,
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const flushHistoryQueue = useCallback(async () => {
+    const queued = historyQueueRef.current.splice(0, historyQueueRef.current.length);
+    if (!queued.length) return;
+    const grouped = queued.reduce<Record<string, HistoryEntry[]>>((acc, item) => {
+      acc[item.assetId] = acc[item.assetId] ?? [];
+      acc[item.assetId].push(item.entry);
+      return acc;
+    }, {});
+    await Promise.all(
+      Object.entries(grouped).map(([assetId, entries]) =>
+        fetch(`/api/chapters/${chapterId}/assets/${assetId}/history`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entries }),
+        }).catch(() => null),
+      ),
+    );
+  }, [chapterId]);
+
+  const queueHistoryEntry = useCallback(
+    (assetId: string, entry: HistoryEntry) => {
+      historyQueueRef.current.push({ assetId, entry });
+      if (historyFlushTimer.current) {
+        clearTimeout(historyFlushTimer.current);
+      }
+      historyFlushTimer.current = setTimeout(() => {
+        historyFlushTimer.current = null;
+        void flushHistoryQueue();
+      }, 1200);
+    },
+    [flushHistoryQueue],
+  );
 
   useEffect(() => {
     const page = pages[currentPageIndex];
@@ -76,26 +146,8 @@ export const useEditorState = (chapterId: string) => {
           return;
         }
         const jsonData = (await response.json()) as PageJson;
-        ensureBubbleOrders(jsonData);
-        applyInitialOverlapOrdering(jsonData);
         if (!active) return;
-        setPages((prev) =>
-          prev.map((item, index) => {
-            if (index !== currentPageIndex) return item;
-            const ordered = jsonData.items?.length ? getOrderedBubbleIndices(jsonData) : [];
-            const nextSelected =
-              item.selectedBubbleIndex < 0
-                ? (ordered[0] ?? -1)
-                : clampIndex(item.selectedBubbleIndex, jsonData.items?.length ?? 0);
-            return {
-              ...item,
-              json: jsonData,
-              isJsonLoading: false,
-              selectedBubbleIndex: nextSelected,
-              overlapOrdered: true,
-            };
-          }),
-        );
+        hydratePageJson(currentPageIndex, jsonData);
       } catch {
         if (!active) return;
         setPages((prev) =>
@@ -111,7 +163,76 @@ export const useEditorState = (chapterId: string) => {
     return () => {
       active = false;
     };
-  }, [currentPageIndex, pages]);
+  }, [currentPageIndex, hydratePageJson, pages]);
+
+  useEffect(() => {
+    pages.forEach((page, index) => {
+      if (!page.asset.jsonUrl || page.json) return;
+      if (prefetchInFlight.current.has(page.asset.assetId)) return;
+      prefetchInFlight.current.add(page.asset.assetId);
+      fetch(page.asset.jsonUrl)
+        .then((response) => {
+          if (!response.ok) return null;
+          return response.json() as Promise<PageJson>;
+        })
+        .then((jsonData) => {
+          if (!jsonData) return;
+          hydratePageJson(index, jsonData);
+        })
+        .finally(() => {
+          prefetchInFlight.current.delete(page.asset.assetId);
+        });
+    });
+  }, [hydratePageJson, pages]);
+
+  useEffect(() => {
+    pages.forEach((page) => {
+      if (imageCache.current.has(page.asset.imageUrl)) return;
+      const image = new Image();
+      image.src = page.asset.imageUrl;
+      imageCache.current.set(page.asset.imageUrl, image);
+    });
+  }, [pages]);
+
+  useEffect(() => {
+    const page = pages[currentPageIndex];
+    if (!page?.json || page.hasHistoryLoaded) return;
+    let active = true;
+    const loadHistory = async () => {
+      try {
+        const response = await fetch(
+          `/api/chapters/${chapterId}/assets/${page.asset.assetId}/history`,
+        );
+        if (!response.ok) return;
+        const data = (await response.json()) as HistoryEntry[];
+        if (!active) return;
+        setPages((prev) =>
+          prev.map((item, index) =>
+            index === currentPageIndex
+              ? {
+                  ...item,
+                  history: { undoStack: data, redoStack: [] },
+                  hasHistoryLoaded: true,
+                }
+              : item,
+          ),
+        );
+      } catch {
+        if (!active) return;
+        setPages((prev) =>
+          prev.map((item, index) =>
+            index === currentPageIndex
+              ? { ...item, hasHistoryLoaded: true }
+              : item,
+          ),
+        );
+      }
+    };
+    void loadHistory();
+    return () => {
+      active = false;
+    };
+  }, [chapterId, currentPageIndex, pages]);
 
   const selectPage = useCallback(
     (index: number) => {
@@ -148,14 +269,20 @@ export const useEditorState = (chapterId: string) => {
   }, [currentPageIndex]);
 
   const updateCurrentJson = useCallback(
-    (updater: (json: PageJson) => PageJson, label?: string) => {
+    (updater: (json: PageJson) => PageJson, label?: string, meta?: HistoryMeta) => {
       setPages((prev) => {
         const next = [...prev];
         const page = next[currentPageIndex];
         if (!page?.json) return prev;
         const before = cloneJson(page.json);
         const updated = updater(cloneJson(page.json));
-        const history = label ? pushHistory(page.history, before, label) : page.history;
+        const history = label
+          ? pushHistory(page.history, before, label, meta)
+          : page.history;
+        const entry = label ? history.undoStack.at(-1) : null;
+        if (entry) {
+          queueHistoryEntry(page.asset.assetId, entry);
+        }
         const nextSelected = clampIndex(
           page.selectedBubbleIndex,
           updated.items?.length ?? 0,
@@ -164,12 +291,13 @@ export const useEditorState = (chapterId: string) => {
           ...page,
           json: updated,
           history,
+          isDirty: true,
           selectedBubbleIndex: nextSelected,
         };
         return next;
       });
     },
-    [currentPageIndex],
+    [currentPageIndex, queueHistoryEntry],
   );
 
   const updateCurrentAsset = useCallback(
@@ -186,19 +314,25 @@ export const useEditorState = (chapterId: string) => {
   );
 
   const pushHistorySnapshot = useCallback(
-    (snapshot: PageJson, label: string) => {
+    (snapshot: PageJson, label: string, meta?: HistoryMeta) => {
       setPages((prev) => {
         const next = [...prev];
         const page = next[currentPageIndex];
         if (!page?.json) return prev;
+        const history = pushHistory(page.history, snapshot, label, meta);
+        const entry = history.undoStack.at(-1);
+        if (entry) {
+          queueHistoryEntry(page.asset.assetId, entry);
+        }
         next[currentPageIndex] = {
           ...page,
-          history: pushHistory(page.history, snapshot, label),
+          history,
+          isDirty: true,
         };
         return next;
       });
     },
-    [currentPageIndex],
+    [currentPageIndex, queueHistoryEntry],
   );
 
   const undo = useCallback(() => {
@@ -212,6 +346,7 @@ export const useEditorState = (chapterId: string) => {
         ...page,
         json: snapshot,
         history: nextState,
+        isDirty: true,
         selectedBubbleIndex: clampIndex(
           page.selectedBubbleIndex,
           snapshot.items?.length ?? 0,
@@ -232,6 +367,7 @@ export const useEditorState = (chapterId: string) => {
         ...page,
         json: snapshot,
         history: nextState,
+        isDirty: true,
         selectedBubbleIndex: clampIndex(
           page.selectedBubbleIndex,
           snapshot.items?.length ?? 0,
@@ -253,6 +389,53 @@ export const useEditorState = (chapterId: string) => {
       return next;
     });
   }, [currentPageIndex]);
+
+  const applyHistoryEntry = useCallback(
+    (entry: HistoryEntry, stackType: "undo" | "redo", index: number) => {
+      setPages((prev) => {
+        const next = [...prev];
+        const page = next[currentPageIndex];
+        if (!page?.json) return prev;
+        const currentHistory = page.history;
+        let nextUndo = currentHistory.undoStack;
+        if (stackType === "undo") {
+          nextUndo = currentHistory.undoStack.slice(0, index);
+        } else {
+          nextUndo = [
+            ...currentHistory.undoStack,
+            ...currentHistory.redoStack.slice(0, index),
+          ];
+        }
+        next[currentPageIndex] = {
+          ...page,
+          json: cloneJson(entry.snapshot),
+          history: {
+            undoStack: nextUndo,
+            redoStack: [],
+          },
+          isDirty: true,
+          selectedBubbleIndex: clampIndex(
+            page.selectedBubbleIndex,
+            entry.snapshot.items?.length ?? 0,
+          ),
+        };
+        return next;
+      });
+    },
+    [currentPageIndex],
+  );
+
+  const updatePageState = useCallback(
+    (index: number, updater: (page: PageState) => PageState) => {
+      setPages((prev) => {
+        if (index < 0 || index >= prev.length) return prev;
+        return prev.map((page, pageIndex) =>
+          pageIndex === index ? updater(page) : page,
+        );
+      });
+    },
+    [],
+  );
 
   const orderedBubbleIndices = useMemo(() => {
     if (!currentPage?.json?.items?.length) return [];
@@ -302,6 +485,8 @@ export const useEditorState = (chapterId: string) => {
     undo,
     redo,
     clearHistoryState,
+    applyHistoryEntry,
+    updatePageState,
     selectNextBubble,
     selectPrevBubble,
     loadAssets,
