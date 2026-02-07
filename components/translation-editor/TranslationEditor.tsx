@@ -78,6 +78,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     wrapperHeight: 0,
   });
   const panRef = useRef(pan);
+  const pagesRef = useRef(pages);
 
   const items = currentPage?.json?.items ?? [];
   const selectedIndex = currentPage?.selectedBubbleIndex ?? -1;
@@ -90,6 +91,10 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   useEffect(() => {
     panRef.current = pan;
   }, [pan]);
+
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
 
   const ensureBubbleInView = useCallback(() => {
     if (!autoPanEnabled || !currentPage?.json || selectedIndex < 0) return;
@@ -174,7 +179,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
       pageIndex: number,
       options?: { silent?: boolean; statusPrefix?: string },
     ) => {
-      const page = pages[pageIndex];
+      const page = pagesRef.current[pageIndex];
       if (!page?.json || !page.asset) return { ok: false };
       if (!canEdit) return { ok: false };
       const dirtyRevision = page.dirtyRevision;
@@ -219,7 +224,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         return { ok: false };
       }
     },
-    [canEdit, chapterId, pages, setStatusMessage, updatePageState],
+    [canEdit, chapterId, setStatusMessage, updatePageState],
   );
 
   const onSave = useCallback(async () => {
@@ -245,7 +250,7 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
 
   const onSaveAll = useCallback(async () => {
     if (!canEdit) return;
-    const targets = pages
+    const targets = pagesRef.current
       .map((page, index) => ({ page, index }))
       .filter(({ page }) => page.json);
     if (!targets.length) {
@@ -265,15 +270,19 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     } else {
       setStatusMessage("No pages were saved.");
     }
-  }, [canEdit, pages, savePageJson, setStatusMessage]);
+  }, [canEdit, savePageJson, setStatusMessage]);
 
   const onMarkTranslated = useCallback(async () => {
-    const page = pages[currentPageIndex];
+    const page = pagesRef.current[currentPageIndex];
     if (!page?.json) return;
-    const saveResult = await savePageJson(currentPageIndex, { silent: true });
-    if (!saveResult.ok) {
-      setStatusMessage("Failed to save before marking translation done.");
-      return;
+    const nextTranslated = !page.asset.isTranslated;
+    let saveResult: { ok: boolean; pageLabel?: string } = { ok: true };
+    if (nextTranslated) {
+      saveResult = await savePageJson(currentPageIndex, { silent: true });
+      if (!saveResult.ok) {
+        setStatusMessage("Failed to save before marking translation done.");
+        return;
+      }
     }
     try {
       const response = await fetch(
@@ -281,26 +290,37 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isTranslated: true }),
+          body: JSON.stringify({ isTranslated: nextTranslated }),
         },
       );
       if (!response.ok) {
-        setStatusMessage("Failed to mark translation as done.");
+        setStatusMessage(
+          nextTranslated
+            ? "Failed to mark translation as done."
+            : "Failed to mark translation as not done.",
+        );
         return;
       }
       updatePageState(currentPageIndex, (prev) => ({
         ...prev,
-        asset: { ...prev.asset, isTranslated: true },
+        asset: { ...prev.asset, isTranslated: nextTranslated },
       }));
-      setStatusMessage(`${saveResult.pageLabel ?? "Page"} saved and marked done.`);
-      selectPage(Math.min(pages.length - 1, currentPageIndex + 1));
+      if (nextTranslated) {
+        setStatusMessage(`${saveResult.pageLabel ?? "Page"} saved and marked done.`);
+        selectPage(Math.min(pages.length - 1, currentPageIndex + 1));
+      } else {
+        setStatusMessage("Translation marked as not done.");
+      }
     } catch {
-      setStatusMessage("Failed to mark translation as done.");
+      setStatusMessage(
+        nextTranslated
+          ? "Failed to mark translation as done."
+          : "Failed to mark translation as not done.",
+      );
     }
   }, [
     chapterId,
     currentPageIndex,
-    pages,
     savePageJson,
     selectPage,
     setStatusMessage,
@@ -321,16 +341,18 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   useEffect(() => {
     if (!canEdit) return undefined;
     const interval = window.setInterval(() => {
-      const page = pages[currentPageIndex];
+      const page = pagesRef.current[currentPageIndex];
       if (!page?.json || !page.isDirty || page.isSaving) return;
       void savePageJson(currentPageIndex, { silent: true }).then((result) => {
         if (result.ok && result.pageLabel) {
           setStatusMessage(`Auto-saved ${result.pageLabel}.`);
+        } else {
+          setStatusMessage("Auto-save failed. Please save manually.");
         }
       });
     }, 15000);
     return () => window.clearInterval(interval);
-  }, [canEdit, currentPageIndex, pages, savePageJson, setStatusMessage]);
+  }, [canEdit, currentPageIndex, savePageJson, setStatusMessage]);
 
   const handleTextCommit = useCallback(
     (snapshot: PageJson) => {
@@ -533,10 +555,20 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
 
   const hasJson = Boolean(currentPage?.json);
   const canSave = hasJson && canEdit;
-  const canSaveAll = canEdit && pages.some((page) => page.json && page.isDirty);
+  const canSaveAll = canEdit && pages.some((page) => page.json);
   const canMarkTranslated = canSave && !currentPage?.isSaving;
 
   const assets = useMemo(() => pages.map((page) => page.asset), [pages]);
+  const translatedCount = useMemo(
+    () => pages.filter((page) => page.asset.isTranslated).length,
+    [pages],
+  );
+  const totalCount = pages.length;
+  const remainingCount = totalCount - translatedCount;
+  const dirtyCount = useMemo(
+    () => pages.filter((page) => page.isDirty).length,
+    [pages],
+  );
   const handlePrevPage = useCallback(() => {
     selectPage(Math.max(0, currentPageIndex - 1));
   }, [currentPageIndex, selectPage]);
@@ -575,6 +607,38 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
       {statusMessage && <div className={styles.statusBanner}>{statusMessage}</div>}
       <div className={styles.contentGrid}>
         <div className={styles.column}>
+          <div className={styles.panel}>
+            <h3 className={styles.panelTitle}>Save & Stats</h3>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={onSaveAll}
+              disabled={!canEdit || !canSaveAll}
+              title="Save all pages"
+              aria-label="Save all pages"
+            >
+              <i className="fa-solid fa-layer-group" aria-hidden="true" />
+              <span className={styles.buttonLabel}>Save All</span>
+            </button>
+            <div className={styles.statsList}>
+              <div className={styles.statsItem}>
+                <span className={styles.statsLabel}>Total pages</span>
+                <span className={styles.statsValue}>{totalCount}</span>
+              </div>
+              <div className={styles.statsItem}>
+                <span className={styles.statsLabel}>Translate done</span>
+                <span className={styles.statsValue}>{translatedCount}</span>
+              </div>
+              <div className={styles.statsItem}>
+                <span className={styles.statsLabel}>Not done</span>
+                <span className={styles.statsValue}>{remainingCount}</span>
+              </div>
+              <div className={styles.statsItem}>
+                <span className={styles.statsLabel}>Dirty pages</span>
+                <span className={styles.statsValue}>{dirtyCount}</span>
+              </div>
+            </div>
+          </div>
           <PageSwitcher
             pages={assets}
             currentIndex={currentPageIndex}
@@ -610,11 +674,9 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
                 canRemove={selectedIndex >= 0}
                 drawMode={drawMode}
                 zoom={zoom}
-                canSaveAll={canSaveAll}
                 canMarkTranslated={canMarkTranslated}
                 isTranslated={Boolean(currentPage?.asset.isTranslated)}
                 onSave={onSave}
-                onSaveAll={onSaveAll}
                 onMarkTranslated={onMarkTranslated}
                 onDownload={onDownload}
                 onUndo={undo}
