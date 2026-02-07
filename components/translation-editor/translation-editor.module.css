@@ -115,14 +115,12 @@
   grid-template-columns: 220px minmax(0, 1fr) 320px;
   gap: 1rem;
   flex: 1;
-  min-height: 0;
 }
 
 .column {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  min-height: 0;
 }
 
 .previewColumn {
