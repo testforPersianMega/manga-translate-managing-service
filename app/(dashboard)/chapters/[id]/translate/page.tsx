@@ -35,8 +35,8 @@ export default async function TranslatePage({ params }: TranslatePageProps) {
   }
 
   const canEdit =
-    permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPDATE) &&
-    (await canEditChapter(user, chapter));
+    (await canEditChapter(user, chapter)) ||
+    permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPDATE);
 
   return (
     <div className="space-y-4">
