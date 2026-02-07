@@ -17,13 +17,12 @@ const formatTime = (timestamp: number) =>
     second: "2-digit",
   });
 
+const formatEditor = (entry: HistoryEntry) =>
+  entry.meta?.editor?.name || entry.meta?.editor?.email || null;
+
 const formatMeta = (entry: HistoryEntry) => {
   if (!entry.meta) return null;
   const parts: string[] = [];
-  const editorName = entry.meta.editor?.name || entry.meta.editor?.email;
-  if (editorName) {
-    parts.push(`By ${editorName}`);
-  }
   if (entry.meta.bubbleId !== undefined) {
     parts.push(`Bubble ${entry.meta.bubbleId}`);
   }
@@ -50,6 +49,7 @@ const renderEntries = (
   const displayEntries = [...entries].reverse();
   return displayEntries.map((entry, displayIndex) => {
     const originalIndex = entries.length - 1 - displayIndex;
+    const editorName = formatEditor(entry);
     const meta = formatMeta(entry);
     return (
       <li key={`${stackType}-${entry.label}-${entry.timestamp}-${displayIndex}`}>
@@ -59,6 +59,7 @@ const renderEntries = (
           onClick={() => onApplyHistory(entry, stackType, originalIndex)}
         >
           <div className={styles.historyTitle}>{entry.label}</div>
+          {editorName && <div className={styles.historyMeta}>By {editorName}</div>}
           {meta && <div className={styles.historyMeta}>{meta}</div>}
           <div className={styles.historyMeta}>{formatTime(entry.timestamp)}</div>
         </button>
