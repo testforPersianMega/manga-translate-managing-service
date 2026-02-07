@@ -46,6 +46,11 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
   const canEdit = await canEditChapter(user, chapter);
   const canViewAssets = permissions.has(PERMISSIONS.CHAPTER_ASSETS_VIEW);
   const canViewAssetsPage = permissions.has(PERMISSIONS.CHAPTER_ASSETS_PAGE_VIEW);
+  const canManageAssets =
+    canEdit &&
+    (permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPLOAD) ||
+      permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPDATE) ||
+      permissions.has(PERMISSIONS.CHAPTER_ASSETS_DELETE));
 
   const [totalPages, translatedPages, historyEntries] = canViewAssets
     ? await Promise.all([
@@ -310,7 +315,7 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
             <a href={`/chapters/${params.id}/translate`} className="text-blue-600">
               ورود به ویرایشگر ترجمه
             </a>
-            {canViewAssetsPage && (
+            {canViewAssetsPage && canManageAssets && (
               <a href={`/chapters/${params.id}/assets`} className="text-blue-600">
                 مدیریت دارایی‌های چپتر
               </a>

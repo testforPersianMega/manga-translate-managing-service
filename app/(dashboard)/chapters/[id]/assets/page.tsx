@@ -253,7 +253,12 @@ export default async function ChapterAssetsPage({
   const canUpload = permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPLOAD) && canEdit;
   const canUpdate = permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPDATE) && canEdit;
   const canDelete = permissions.has(PERMISSIONS.CHAPTER_ASSETS_DELETE) && canEdit;
-  const canBulk = permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPLOAD_MULTI_CHAPTER);
+  const canManageAssets = canUpload || canUpdate || canDelete;
+  const canBulk = permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPLOAD_MULTI_CHAPTER) && canEdit;
+
+  if (!canManageAssets) {
+    redirect(`/chapters/${params.id}`);
+  }
 
   const assets = await prisma.chapterAsset.findMany({
     where: { chapterId: params.id },

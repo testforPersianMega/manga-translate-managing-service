@@ -22,12 +22,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const permissions = await getEffectivePermissions(user.id);
-    if (!permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPDATE)) {
-      return NextResponse.json({ error: "عدم دسترسی" }, { status: 403 });
-    }
-
     const canEdit = await canEditChapter(user, chapter);
-    if (!canEdit) {
+    if (!canEdit || !permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPDATE)) {
       return NextResponse.json({ error: "عدم دسترسی" }, { status: 403 });
     }
 
