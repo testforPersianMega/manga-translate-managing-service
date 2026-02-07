@@ -135,11 +135,12 @@ export const useEditorState = (chapterId: string) => {
 
   useEffect(() => {
     const page = pages[currentPageIndex];
-    if (!page || page.json || !page.asset.jsonUrl || !page.isJsonLoading) return;
+    const jsonUrl = page?.asset.jsonUrl;
+    if (!page || page.json || !jsonUrl || !page.isJsonLoading) return;
     let active = true;
     const loadJson = async () => {
       try {
-        const response = await fetch(withCacheBust(page.asset.jsonUrl), {
+        const response = await fetch(withCacheBust(jsonUrl), {
           cache: "no-store",
         });
         if (!response.ok) {
@@ -175,10 +176,11 @@ export const useEditorState = (chapterId: string) => {
 
   useEffect(() => {
     pages.forEach((page, index) => {
-      if (!page.asset.jsonUrl || page.json) return;
+      const jsonUrl = page.asset.jsonUrl;
+      if (!jsonUrl || page.json) return;
       if (prefetchInFlight.current.has(page.asset.assetId)) return;
       prefetchInFlight.current.add(page.asset.assetId);
-      fetch(withCacheBust(page.asset.jsonUrl), { cache: "no-store" })
+      fetch(withCacheBust(jsonUrl), { cache: "no-store" })
         .then((response) => {
           if (!response.ok) return null;
           return response.json() as Promise<PageJson>;
