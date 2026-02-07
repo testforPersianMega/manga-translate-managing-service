@@ -196,10 +196,22 @@ export default async function BookDetailPage({
 
     const chapters = await prisma.chapter.findMany({
       where: { id: { in: chapterIds }, bookId: params.id },
-      select: { id: true },
+      select: { id: true, assignedToUserId: true },
     });
 
     if (chapters.length === 0) {
+      redirect(`/books/${params.id}`);
+    }
+
+    const permissions = await getEffectivePermissions(sessionUser.id);
+    const canEditAny = permissions.has(PERMISSIONS.CHAPTER_EDIT_ANY);
+    const canEditOwn = permissions.has(PERMISSIONS.CHAPTER_EDIT_OWN);
+    const editableChapters = chapters.filter(
+      (chapter) =>
+        canEditAny || (canEditOwn && chapter.assignedToUserId === sessionUser.id),
+    );
+
+    if (editableChapters.length === 0) {
       redirect(`/books/${params.id}`);
     }
 
@@ -234,7 +246,7 @@ export default async function BookDetailPage({
     }
 
     await prisma.chapter.updateMany({
-      where: { id: { in: chapters.map((chapter) => chapter.id) } },
+      where: { id: { in: editableChapters.map((chapter) => chapter.id) } },
       data,
     });
 
