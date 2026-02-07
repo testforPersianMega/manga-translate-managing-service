@@ -25,6 +25,8 @@ export function PageSwitcher({
           className={styles.secondaryButton}
           onClick={onPrev}
           disabled={currentIndex <= 0}
+          title="Previous page (PageUp)"
+          aria-label="Previous page (PageUp)"
         >
           Previous
         </button>
@@ -36,6 +38,8 @@ export function PageSwitcher({
           className={styles.secondaryButton}
           onClick={onNext}
           disabled={currentIndex >= pages.length - 1}
+          title="Next page (PageDown)"
+          aria-label="Next page (PageDown)"
         >
           Next
         </button>

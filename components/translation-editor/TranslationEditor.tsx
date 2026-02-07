@@ -326,6 +326,16 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
     setDrawMode((prev) => !prev);
   }, []);
 
+  const handleToggleDrawShortcut = useCallback(() => {
+    if (!canEdit) return;
+    setDrawMode((prev) => !prev);
+  }, [canEdit]);
+
+  const handleRemoveBubbleShortcut = useCallback(() => {
+    if (!canEdit) return;
+    handleRemoveBubble();
+  }, [canEdit, handleRemoveBubble]);
+
   const handleUpdateBubbleBbox = useCallback(
     (index: number, bbox: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
       updateCurrentJson((json) => {
@@ -363,19 +373,6 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   const hasJson = Boolean(currentPage?.json);
   const canSave = hasJson && canEdit;
 
-  useShortcuts({
-    onSave,
-    onUndo: undo,
-    onRedo: redo,
-    onNextBubble: selectNextBubble,
-    onPrevBubble: selectPrevBubble,
-    onZoomIn: zoomIn,
-    onZoomOut: zoomOut,
-    onResetZoom: reset,
-    onPan: panBy,
-    panStep,
-  });
-
   const assets = useMemo(() => pages.map((page) => page.asset), [pages]);
   const handlePrevPage = useCallback(() => {
     selectPage(Math.max(0, currentPageIndex - 1));
@@ -384,6 +381,23 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
   const handleNextPage = useCallback(() => {
     selectPage(Math.min(pages.length - 1, currentPageIndex + 1));
   }, [currentPageIndex, pages.length, selectPage]);
+
+  useShortcuts({
+    onSave,
+    onUndo: undo,
+    onRedo: redo,
+    onToggleDrawMode: handleToggleDrawShortcut,
+    onRemoveBubble: handleRemoveBubbleShortcut,
+    onNextBubble: selectNextBubble,
+    onPrevBubble: selectPrevBubble,
+    onNextPage: handleNextPage,
+    onPrevPage: handlePrevPage,
+    onZoomIn: zoomIn,
+    onZoomOut: zoomOut,
+    onResetZoom: reset,
+    onPan: panBy,
+    panStep,
+  });
 
   return (
     <div className={styles.editorRoot}>

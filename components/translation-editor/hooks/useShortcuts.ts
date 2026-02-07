@@ -15,8 +15,12 @@ type ShortcutHandlers = {
   onSave: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onToggleDrawMode: () => void;
+  onRemoveBubble: () => void;
   onNextBubble: () => void;
   onPrevBubble: () => void;
+  onNextPage: () => void;
+  onPrevPage: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -28,8 +32,12 @@ export const useShortcuts = ({
   onSave,
   onUndo,
   onRedo,
+  onToggleDrawMode,
+  onRemoveBubble,
   onNextBubble,
   onPrevBubble,
+  onNextPage,
+  onPrevPage,
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -62,6 +70,26 @@ export const useShortcuts = ({
       }
 
       if (!event.ctrlKey && !event.metaKey) {
+        if (event.key.toLowerCase() === "b") {
+          event.preventDefault();
+          onToggleDrawMode();
+          return;
+        }
+        if (event.key === "Delete" || event.key === "Backspace") {
+          event.preventDefault();
+          onRemoveBubble();
+          return;
+        }
+        if (event.key === "PageUp") {
+          event.preventDefault();
+          onPrevPage();
+          return;
+        }
+        if (event.key === "PageDown") {
+          event.preventDefault();
+          onNextPage();
+          return;
+        }
         if (event.key === "+" || event.key === "=") {
           event.preventDefault();
           onZoomIn();
@@ -116,8 +144,12 @@ export const useShortcuts = ({
     onSave,
     onUndo,
     onRedo,
+    onToggleDrawMode,
+    onRemoveBubble,
     onNextBubble,
     onPrevBubble,
+    onNextPage,
+    onPrevPage,
     onZoomIn,
     onZoomOut,
     onResetZoom,
