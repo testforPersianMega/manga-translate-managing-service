@@ -44,7 +44,7 @@ export function Toolbar({
           title="Save (Ctrl/Cmd+S)"
           aria-label="Save (Ctrl/Cmd+S)"
         >
-          <span aria-hidden="true">💾</span>
+          <i className="fa-solid fa-floppy-disk" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -53,7 +53,7 @@ export function Toolbar({
           title="Download JSON (no shortcut)"
           aria-label="Download JSON (no shortcut)"
         >
-          <span aria-hidden="true">⬇️</span>
+          <i className="fa-solid fa-download" aria-hidden="true" />
         </button>
       </div>
       <div className={styles.toolbarGroup}>
@@ -64,7 +64,7 @@ export function Toolbar({
           title="Undo (Ctrl/Cmd+Z)"
           aria-label="Undo (Ctrl/Cmd+Z)"
         >
-          <span aria-hidden="true">↶</span>
+          <i className="fa-solid fa-rotate-left" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -73,7 +73,7 @@ export function Toolbar({
           title="Redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)"
           aria-label="Redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)"
         >
-          <span aria-hidden="true">↷</span>
+          <i className="fa-solid fa-rotate-right" aria-hidden="true" />
         </button>
       </div>
       <div className={styles.toolbarGroup}>
@@ -87,7 +87,7 @@ export function Toolbar({
           title="Draw a new bubble"
           aria-label="Draw a new bubble"
         >
-          <span aria-hidden="true">✚</span>
+          <i className="fa-solid fa-plus" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -97,7 +97,7 @@ export function Toolbar({
           title="Remove selected bubble"
           aria-label="Remove selected bubble"
         >
-          <span aria-hidden="true">🗑️</span>
+          <i className="fa-solid fa-trash" aria-hidden="true" />
         </button>
       </div>
       <div className={styles.toolbarGroup}>
@@ -108,7 +108,7 @@ export function Toolbar({
           title="Zoom out (-)"
           aria-label="Zoom out (-)"
         >
-          <span aria-hidden="true">−</span>
+          <i className="fa-solid fa-magnifying-glass-minus" aria-hidden="true" />
         </button>
         <span className={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
         <button
@@ -118,7 +118,7 @@ export function Toolbar({
           title="Zoom in (+)"
           aria-label="Zoom in (+)"
         >
-          <span aria-hidden="true">＋</span>
+          <i className="fa-solid fa-magnifying-glass-plus" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -127,7 +127,7 @@ export function Toolbar({
           title="Reset zoom (0)"
           aria-label="Reset zoom (0)"
         >
-          <span aria-hidden="true">⟲</span>
+          <i className="fa-solid fa-arrows-rotate" aria-hidden="true" />
         </button>
       </div>
     </div>
