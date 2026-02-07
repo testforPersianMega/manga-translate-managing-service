@@ -572,7 +572,7 @@ export function ImageOverlay({
       ref={wrapperRef}
       className={`${styles.imageWrapper} ${canPan ? styles.imageWrapperGrabbable : ""} ${
         isDragging ? styles.imageWrapperGrabbing : ""
-      }`}
+      } ${drawMode ? styles.imageWrapperDrawing : ""}`}
       onPointerDownCapture={handlePointerDownCapture}
       draggable={false}
     >

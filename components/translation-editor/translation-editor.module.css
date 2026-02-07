@@ -55,10 +55,11 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.5rem;
-  border: 1px solid #e2e8f0;
-  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(148, 197, 255, 0.35);
+  background: rgba(59, 130, 246, 0.12);
   border-radius: 0.75rem;
-  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+  backdrop-filter: blur(12px);
 }
 
 .toolbarGroup {
@@ -294,6 +295,10 @@
 
 .imageWrapperGrabbing {
   cursor: grabbing;
+}
+
+.imageWrapperDrawing {
+  cursor: crosshair;
 }
 
 .imageTransform {
