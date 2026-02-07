@@ -6,11 +6,9 @@ type ToolbarProps = {
   canRemove: boolean;
   drawMode: boolean;
   zoom: number;
-  canSaveAll: boolean;
   canMarkTranslated: boolean;
   isTranslated: boolean;
   onSave: () => void;
-  onSaveAll: () => void;
   onMarkTranslated: () => void;
   onDownload: () => void;
   onUndo: () => void;
@@ -28,11 +26,9 @@ export function Toolbar({
   canRemove,
   drawMode,
   zoom,
-  canSaveAll,
   canMarkTranslated,
   isTranslated,
   onSave,
-  onSaveAll,
   onMarkTranslated,
   onDownload,
   onUndo,
@@ -58,17 +54,6 @@ export function Toolbar({
         </button>
         <button
           type="button"
-          className={styles.secondaryButton}
-          onClick={onSaveAll}
-          disabled={!canEdit || !canSaveAll}
-          title="Save all pages"
-          aria-label="Save all pages"
-        >
-          <i className="fa-solid fa-layer-group" aria-hidden="true" />
-          <span className={styles.buttonLabel}>Save All</span>
-        </button>
-        <button
-          type="button"
           className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onDownload}
           title="Download JSON (no shortcut)"
@@ -82,13 +67,13 @@ export function Toolbar({
           type="button"
           className={styles.secondaryButton}
           onClick={onMarkTranslated}
-          disabled={!canEdit || !canMarkTranslated || isTranslated}
-          title="Mark translation as done"
-          aria-label="Mark translation as done"
+          disabled={!canEdit || !canMarkTranslated}
+          title={isTranslated ? "Mark translation as not done" : "Mark translation as done"}
+          aria-label={isTranslated ? "Mark translation as not done" : "Mark translation as done"}
         >
           <i className="fa-solid fa-check" aria-hidden="true" />
           <span className={styles.buttonLabel}>
-            {isTranslated ? "Done" : "Translate Done"}
+            {isTranslated ? "Undo Done" : "Translate Done"}
           </span>
         </button>
       </div>

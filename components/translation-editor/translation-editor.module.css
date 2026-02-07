@@ -150,6 +150,31 @@
   margin-bottom: 0.5rem;
 }
 
+.statsList {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.statsItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.statsLabel {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.statsValue {
+  font-weight: 700;
+  color: #0f172a;
+}
+
 .pageControls {
   display: flex;
   align-items: center;
