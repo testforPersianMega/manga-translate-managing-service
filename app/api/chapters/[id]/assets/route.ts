@@ -44,6 +44,7 @@ export async function GET(_: Request, { params }: RouteParams) {
         fileName: asset.fileName,
         imageUrl: `/api/assets/image/${asset.id}`,
         jsonUrl: asset.pageJson ? `/api/assets/json/${asset.pageJson.id}` : null,
+        isTranslated: asset.isTranslated,
       })),
     );
   } catch (error) {

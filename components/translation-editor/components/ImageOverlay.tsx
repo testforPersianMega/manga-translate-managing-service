@@ -25,7 +25,7 @@ type ImageOverlayProps = {
     index: number,
     bbox: { xMin: number; xMax: number; yMin: number; yMax: number },
   ) => void;
-  onCommitResize: (snapshot: PageJson) => void;
+  onCommitResize: (snapshot: PageJson, index: number) => void;
   onDrawModeChange: (drawMode: boolean) => void;
   onStageMetricsChange?: (metrics: {
     wrapperWidth: number;
@@ -544,7 +544,7 @@ export function ImageOverlay({
       setIsResizing(false);
       resizeState.current = null;
       if (resizeSnapshot.current) {
-        onCommitResize(resizeSnapshot.current);
+        onCommitResize(resizeSnapshot.current, current.index);
       }
       resizeSnapshot.current = null;
     };

@@ -103,6 +103,10 @@
   color: #1d4ed8;
 }
 
+.buttonLabel {
+  margin-left: 0.35rem;
+}
+
 .zoomLabel {
   min-width: 3rem;
   text-align: center;
@@ -206,6 +210,18 @@
   padding: 0.4rem 0.6rem;
   border-radius: 0.5rem;
   background: #f8fafc;
+  font-size: 0.85rem;
+}
+
+.pageButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pageStatusIcon {
+  color: #16a34a;
   font-size: 0.85rem;
 }
 
@@ -430,6 +446,24 @@
 
 .historyList {
   margin-top: 0.5rem;
+}
+
+.historyItemButton {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.historyItemButton:hover {
+  border-color: #bae6fd;
+  background: #f0f9ff;
 }
 
 .historyHeading {

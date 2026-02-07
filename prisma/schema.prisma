@@ -129,6 +129,7 @@ model Chapter {
   book             Book          @relation(fields: [bookId], references: [id])
   assets           ChapterAsset[]
   pageJsons        ChapterPageJson[]
+  pageHistories    ChapterPageHistory[]
   uploadBatches    ChapterUploadBatch[]
   uploadJobs       UploadJob[]
   createdAt        DateTime      @default(now())
@@ -159,6 +160,8 @@ model ChapterAsset {
   width     Int?
   height    Int?
   pageJson  ChapterPageJson?
+  isTranslated Boolean @default(false)
+  historyEntries ChapterPageHistory[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -177,6 +180,20 @@ model ChapterPageJson {
   size         Int
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+model ChapterPageHistory {
+  id        String   @id @default(cuid())
+  chapterId String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     ChapterAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  label     String
+  snapshot  Json
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([assetId, createdAt])
 }
 
 model ChapterUploadBatch {
