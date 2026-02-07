@@ -31,7 +31,6 @@ export const useEditorState = (chapterId: string) => {
   const historyFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchInFlight = useRef<Set<string>>(new Set());
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
-  const cacheBustRef = useRef(Date.now());
 
   const currentPage = pages[currentPageIndex] ?? null;
 
@@ -63,6 +62,11 @@ export const useEditorState = (chapterId: string) => {
       setErrorMessage("Failed to load chapter assets.");
     }
   }, [chapterId]);
+
+  const withCacheBust = useCallback((url: string) => {
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}t=${Date.now()}`;
+  }, []);
 
   useEffect(() => {
     void loadAssets();
@@ -135,8 +139,9 @@ export const useEditorState = (chapterId: string) => {
     let active = true;
     const loadJson = async () => {
       try {
-        const cacheBustUrl = `${page.asset.jsonUrl}${page.asset.jsonUrl.includes("?") ? "&" : "?"}t=${cacheBustRef.current}`;
-        const response = await fetch(cacheBustUrl, { cache: "no-store" });
+        const response = await fetch(withCacheBust(page.asset.jsonUrl), {
+          cache: "no-store",
+        });
         if (!response.ok) {
           if (!active) return;
           setPages((prev) =>
@@ -166,15 +171,14 @@ export const useEditorState = (chapterId: string) => {
     return () => {
       active = false;
     };
-  }, [currentPageIndex, hydratePageJson, pages]);
+  }, [currentPageIndex, hydratePageJson, pages, withCacheBust]);
 
   useEffect(() => {
     pages.forEach((page, index) => {
       if (!page.asset.jsonUrl || page.json) return;
       if (prefetchInFlight.current.has(page.asset.assetId)) return;
       prefetchInFlight.current.add(page.asset.assetId);
-      const cacheBustUrl = `${page.asset.jsonUrl}${page.asset.jsonUrl.includes("?") ? "&" : "?"}t=${cacheBustRef.current}`;
-      fetch(cacheBustUrl, { cache: "no-store" })
+      fetch(withCacheBust(page.asset.jsonUrl), { cache: "no-store" })
         .then((response) => {
           if (!response.ok) return null;
           return response.json() as Promise<PageJson>;
@@ -187,7 +191,7 @@ export const useEditorState = (chapterId: string) => {
           prefetchInFlight.current.delete(page.asset.assetId);
         });
     });
-  }, [hydratePageJson, pages]);
+  }, [hydratePageJson, pages, withCacheBust]);
 
   useEffect(() => {
     pages.forEach((page) => {
