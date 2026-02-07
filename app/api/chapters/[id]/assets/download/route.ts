@@ -114,7 +114,9 @@ export async function GET(
     deleteStorageFile(zipRelativePath).catch(() => undefined);
   }, ZIP_TTL_MS);
 
-  const stream = Readable.toWeb(createReadStream(zipAbsolutePath));
+  const stream = Readable.toWeb(
+    createReadStream(zipAbsolutePath),
+  ) as ReadableStream<Uint8Array>;
   return new NextResponse(stream, {
     headers: {
       "Content-Type": "application/zip",
