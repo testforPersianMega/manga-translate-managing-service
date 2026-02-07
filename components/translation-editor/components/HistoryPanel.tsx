@@ -20,6 +20,10 @@ const formatTime = (timestamp: number) =>
 const formatMeta = (entry: HistoryEntry) => {
   if (!entry.meta) return null;
   const parts: string[] = [];
+  const editorName = entry.meta.editor?.name || entry.meta.editor?.email;
+  if (editorName) {
+    parts.push(`By ${editorName}`);
+  }
   if (entry.meta.bubbleId !== undefined) {
     parts.push(`Bubble ${entry.meta.bubbleId}`);
   }

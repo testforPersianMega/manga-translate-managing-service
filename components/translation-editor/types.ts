@@ -50,6 +50,11 @@ export type HistoryMeta = {
   from?: unknown;
   to?: unknown;
   note?: string;
+  editor?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+  };
 };
 
 export type HistoryState = {
