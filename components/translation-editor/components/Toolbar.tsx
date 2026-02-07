@@ -84,8 +84,8 @@ export function Toolbar({
           }`}
           onClick={onToggleDrawMode}
           disabled={!canEdit}
-          title="Draw a new bubble"
-          aria-label="Draw a new bubble"
+          title="Draw a new bubble (B)"
+          aria-label="Draw a new bubble (B)"
         >
           <i className="fa-solid fa-plus" aria-hidden="true" />
         </button>
@@ -94,8 +94,8 @@ export function Toolbar({
           className={`${styles.secondaryButton} ${styles.iconButton}`}
           onClick={onRemoveBubble}
           disabled={!canEdit || !canRemove}
-          title="Remove selected bubble"
-          aria-label="Remove selected bubble"
+          title="Remove selected bubble (Delete)"
+          aria-label="Remove selected bubble (Delete)"
         >
           <i className="fa-solid fa-trash" aria-hidden="true" />
         </button>
