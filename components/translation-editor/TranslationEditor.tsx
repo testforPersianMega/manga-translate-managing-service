@@ -299,16 +299,17 @@ export function TranslationEditor({ chapterId, canEdit }: TranslationEditorProps
 
   const getIncompleteBubbles = useCallback(
     (page: PageState | null) => {
-      if (!page?.json) {
+      const pageJson = page?.json;
+      if (!pageJson) {
         return { labels: [], missingData: true };
       }
-      const ordered = getOrderedBubbleIndices(page.json);
+      const ordered = getOrderedBubbleIndices(pageJson);
       const indices = ordered.length
         ? ordered
-        : page.json.items.map((_, index) => index);
+        : pageJson.items.map((_, index) => index);
       const labels = indices
-        .filter((index) => !(page.json?.items?.[index]?.text ?? "").trim())
-        .map((index) => formatBubbleLabel(page.json.items[index], index));
+        .filter((index) => !(pageJson.items[index]?.text ?? "").trim())
+        .map((index) => formatBubbleLabel(pageJson.items[index], index));
       return { labels, missingData: false };
     },
     [formatBubbleLabel],
