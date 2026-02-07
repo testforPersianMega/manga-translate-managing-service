@@ -46,6 +46,8 @@ export default async function BookDetailPage({
   const canCreateChapter = permissions.has(PERMISSIONS.CHAPTER_CREATE);
   const canUpdateBook = permissions.has(PERMISSIONS.BOOK_UPDATE);
   const canDeleteBook = permissions.has(PERMISSIONS.BOOK_DELETE);
+  const canAssignChapter = permissions.has(PERMISSIONS.CHAPTER_ASSIGN);
+  const canChangeStatus = permissions.has(PERMISSIONS.CHAPTER_CHANGE_STATUS);
 
   const chapterIds = book.chapters.map((chapter) => chapter.id);
   const [chapterTotals, chapterTranslated] = chapterIds.length
@@ -79,6 +81,12 @@ export default async function BookDetailPage({
     include: { user: true },
     orderBy: { user: { email: "asc" } },
   });
+  const assignableUsers = canAssignChapter
+    ? await prisma.user.findMany({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
   async function createChapter(formData: FormData) {
     "use server";
@@ -150,6 +158,84 @@ export default async function BookDetailPage({
 
     await prisma.chapter.deleteMany({
       where: { id: { in: chapters.map((chapter) => chapter.id) } },
+    });
+
+    redirect(`/books/${params.id}`);
+  }
+
+  async function bulkUpdateChapters(formData: FormData) {
+    "use server";
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) return;
+
+    const statusInput = String(formData.get("status") || "keep");
+    const assignmentInput = String(formData.get("assignedToUserId") || "keep");
+    const shouldChangeStatus = statusInput !== "keep";
+    const shouldAssign = assignmentInput !== "keep";
+
+    if (!shouldChangeStatus && !shouldAssign) {
+      redirect(`/books/${params.id}`);
+    }
+
+    if (shouldChangeStatus) {
+      await assertPermission(sessionUser.id, PERMISSIONS.CHAPTER_CHANGE_STATUS);
+    }
+    if (shouldAssign) {
+      await assertPermission(sessionUser.id, PERMISSIONS.CHAPTER_ASSIGN);
+    }
+
+    const allowed = await canAccessBook(sessionUser, params.id);
+    if (!allowed) {
+      throw new Error("عدم دسترسی به کتاب");
+    }
+
+    const chapterIds = formData.getAll("chapterIds").map(String);
+    if (chapterIds.length === 0) {
+      redirect(`/books/${params.id}`);
+    }
+
+    const chapters = await prisma.chapter.findMany({
+      where: { id: { in: chapterIds }, bookId: params.id },
+      select: { id: true },
+    });
+
+    if (chapters.length === 0) {
+      redirect(`/books/${params.id}`);
+    }
+
+    const data: {
+      status?: "AVAILABLE" | "CLAIMED" | "IN_PROGRESS" | "DONE";
+      assignedToUserId?: string | null;
+      claimedAt?: Date | null;
+    } = {};
+
+    if (shouldChangeStatus) {
+      data.status = statusInput as "AVAILABLE" | "CLAIMED" | "IN_PROGRESS" | "DONE";
+      if (statusInput === "AVAILABLE") {
+        data.assignedToUserId = null;
+        data.claimedAt = null;
+      }
+    }
+
+    if (shouldAssign && statusInput !== "AVAILABLE") {
+      if (assignmentInput === "none") {
+        data.assignedToUserId = null;
+        if (!shouldChangeStatus) {
+          data.status = "AVAILABLE";
+        }
+        data.claimedAt = null;
+      } else {
+        data.assignedToUserId = assignmentInput;
+        data.status = shouldChangeStatus
+          ? data.status
+          : ("CLAIMED" as "CLAIMED");
+        data.claimedAt = new Date();
+      }
+    }
+
+    await prisma.chapter.updateMany({
+      where: { id: { in: chapters.map((chapter) => chapter.id) } },
+      data,
     });
 
     redirect(`/books/${params.id}`);
@@ -279,9 +365,13 @@ export default async function BookDetailPage({
               chapter.assignedToUser?.name ?? chapter.assignedToUser?.email ?? null,
           }))}
           canDelete={canDeleteChapter}
+          canAssign={canAssignChapter}
+          canChangeStatus={canChangeStatus}
+          assignableUsers={assignableUsers}
           currentUserId={user.id}
           onDeleteChapter={removeChapter}
           onBulkDelete={bulkDeleteChapters}
+          onBulkUpdate={bulkUpdateChapters}
         />
       </div>
 

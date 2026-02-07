@@ -255,8 +255,9 @@ export default async function ChapterAssetsPage({
   const canDelete = permissions.has(PERMISSIONS.CHAPTER_ASSETS_DELETE) && canEdit;
   const canManageAssets = canUpload || canUpdate || canDelete;
   const canBulk = permissions.has(PERMISSIONS.CHAPTER_ASSETS_UPLOAD_MULTI_CHAPTER) && canEdit;
+  const canDownload = permissions.has(PERMISSIONS.CHAPTER_ASSETS_DOWNLOAD);
 
-  if (!canManageAssets) {
+  if (!canManageAssets && !canDownload) {
     redirect(`/chapters/${params.id}`);
   }
 
@@ -636,6 +637,29 @@ export default async function ChapterAssetsPage({
           maxSingleMb={MAX_SINGLE_FILE_MB}
           maxZipMb={MAX_ZIP_FILE_MB}
         />
+      )}
+
+      {canDownload && (
+        <div className="card">
+          <h3 className="text-sm font-semibold">دانلود فایل‌های چپتر</h3>
+          <p className="mt-2 text-xs text-gray-500">
+            انتخاب کنید که تصاویر، فایل‌های JSON یا هر دو مورد در یک فایل ZIP دانلود شوند.
+          </p>
+          <form
+            className="mt-4 flex flex-wrap items-center gap-2"
+            method="GET"
+            action={`/api/chapters/${params.id}/assets/download`}
+          >
+            <select name="type" defaultValue="both">
+              <option value="both">همه فایل‌ها</option>
+              <option value="images">فقط تصاویر</option>
+              <option value="json">فقط JSON</option>
+            </select>
+            <button className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white">
+              دانلود ZIP
+            </button>
+          </form>
+        </div>
       )}
 
       {canBulk && (

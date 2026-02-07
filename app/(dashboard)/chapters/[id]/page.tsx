@@ -10,6 +10,7 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import ChapterActionButton from "@/components/ChapterActionButton";
+import BackButton from "@/components/BackButton";
 import { revalidatePath } from "next/cache";
 
 interface ChapterDetailPageProps {
@@ -216,11 +217,14 @@ export default async function ChapterDetailPage({ params }: ChapterDetailPagePro
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">
-          {chapter.book.titleFa} · چپتر {chapter.number}
-        </h2>
-        <p className="text-sm text-gray-500">صفحه ترجمه (نسخه MVP)</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">
+            {chapter.book.titleFa} · چپتر {chapter.number}
+          </h2>
+          <p className="text-sm text-gray-500">صفحه ترجمه (نسخه MVP)</p>
+        </div>
+        <BackButton label="بازگشت یک مرحله" className="text-sm text-blue-600" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
