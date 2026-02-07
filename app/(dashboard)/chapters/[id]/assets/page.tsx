@@ -242,7 +242,10 @@ export default async function ChapterAssetsPage({
   }
 
   const permissions = await getEffectivePermissions(user.id);
-  if (!permissions.has(PERMISSIONS.CHAPTER_ASSETS_VIEW)) {
+  if (
+    !permissions.has(PERMISSIONS.CHAPTER_ASSETS_VIEW) ||
+    !permissions.has(PERMISSIONS.CHAPTER_ASSETS_PAGE_VIEW)
+  ) {
     redirect(`/chapters/${params.id}`);
   }
 
